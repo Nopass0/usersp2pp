@@ -497,7 +497,7 @@ export function StartSessionDialog({
                           )}
                         </div>
                         
-                        {/* <FormMessage /> */}
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -572,7 +572,7 @@ export function StartSessionDialog({
                       <FormItem>
                         <FormLabel>Комментарий (необязательно)</FormLabel>
                         <FormControl>
-                          <Textarea
+                          {/* <Textarea
                             placeholder="Введите комментарий к рабочей сессии"
                             {...field}
                             onChange={(e) => {
@@ -580,7 +580,7 @@ export function StartSessionDialog({
                               setComment(e.target.value);
                             }}
                             className="min-h-[100px] resize-none"
-                          />
+                          /> */}
                         </FormControl>
                         <FormMessage />
                       </FormItem>
