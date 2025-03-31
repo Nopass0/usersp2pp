@@ -497,7 +497,7 @@ export function StartSessionDialog({
                           )}
                         </div>
                         
-                        <FormMessage />
+                        {/* <FormMessage /> */}
                       </FormItem>
                     )}
                   />
