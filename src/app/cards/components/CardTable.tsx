@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   ArrowUpDown,
   Edit,
@@ -9,8 +9,11 @@ import {
   MoreHorizontal,
   Trash,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  CalendarIcon
 } from "lucide-react";
+import { format, subMonths } from "date-fns";
+import { ru } from "date-fns/locale";
 import { api } from "~/trpc/react";
 import { Button } from "~/components/ui/button";
 import {
@@ -51,6 +54,7 @@ import CardEditDialog from "./CardEditDialog";
 import AuditLogDialog from "~/components/AuditLogDialog";
 import CardPouringsDialog from "./CardPouringsDialog";
 import CardBalancesDialog from "./CardBalancesDialog";
+import { Input } from "~/components/ui/input";
 
 // Определим типы для карты
 export type Card = {
@@ -118,6 +122,68 @@ export default function CardTable({
   const [cardForBalances, setCardForBalances] = useState<Card | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Состояния для фильтра по дате
+  const [startDate, setStartDate] = useState<string>(
+    format(subMonths(new Date(), 1), "yyyy-MM-dd")
+  );
+  const [endDate, setEndDate] = useState<string>(
+    format(new Date(), "yyyy-MM-dd")
+  );
+  const [filteredCards, setFilteredCards] = useState<Card[]>(cards);
+
+  // Обновляем фильтрованные карты при изменении основного списка или фильтров
+  useMemo(() => {
+    if (!cards.length) {
+      setFilteredCards([]);
+      return;
+    }
+
+    try {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+
+      const filtered = cards.filter((card) => {
+        const cardDate = new Date(card.createdAt);
+        return cardDate >= start && cardDate <= end;
+      });
+
+      setFilteredCards(filtered);
+    } catch (e) {
+      console.error("Ошибка при фильтрации карт:", e);
+      setFilteredCards(cards);
+    }
+  }, [cards, startDate, endDate]);
+
+  // Рассчитываем суммарные показатели
+  const summaryStats = useMemo(() => {
+    if (!filteredCards.length) {
+      return {
+        totalCardPrice: 0,
+        totalPaidCardPrice: 0,
+        totalUnpaidCardPrice: 0,
+        totalPoured: 0,
+        totalWithdrawal: 0,
+        totalLastBalance: 0,
+      };
+    }
+
+    return {
+      totalCardPrice: filteredCards.reduce((sum, card) => sum + (card.cardPrice || 0), 0),
+      totalPaidCardPrice: filteredCards
+        .filter((card) => card.isPaid)
+        .reduce((sum, card) => sum + (card.cardPrice || 0), 0),
+      totalUnpaidCardPrice: filteredCards
+        .filter((card) => !card.isPaid)
+        .reduce((sum, card) => sum + (card.cardPrice || 0), 0),
+      totalPoured: filteredCards.reduce((sum, card) => sum + (card.totalPoured || 0), 0),
+      totalWithdrawal: filteredCards.reduce((sum, card) => sum + (card.withdrawal || 0), 0),
+      totalLastBalance: filteredCards.reduce((sum, card) => sum + (card.lastBalance || 0), 0),
+    };
+  }, [filteredCards]);
+
   const deleteCardMutation = api.cards.delete.useMutation({
     onSuccess: () => {
       onCardDeleted();
@@ -132,7 +198,7 @@ export default function CardTable({
 
   const handleDeleteCard = () => {
     if (!cardToDelete) return;
-    
+
     setIsDeleting(true);
     deleteCardMutation.mutate({ id: parseInt(cardToDelete) });
   };
@@ -148,18 +214,23 @@ export default function CardTable({
   // Функция для форматирования сумм
   const formatAmount = (value: number | null | undefined) => {
     if (value === null || value === undefined) return "₽0.00";
-    
-    return new Intl.NumberFormat("ru-RU", {
-      style: "currency",
-      currency: "RUB",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
+
+    try {
+      return new Intl.NumberFormat("ru-RU", {
+        style: "currency",
+        currency: "RUB",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value);
+    } catch (e) {
+      console.error("Ошибка форматирования суммы:", e);
+      return "₽0.00";
+    }
   };
 
   const getSortIcon = (column: string) => {
     if (sortBy !== column) return <ArrowUpDown className="ml-2 h-4 w-4" />;
-    
+
     return sortDirection === "asc" ? (
       <ArrowUpDown className="ml-2 h-4 w-4 text-primary rotate-180" />
     ) : (
@@ -202,11 +273,35 @@ export default function CardTable({
 
   return (
     <>
-      <div className="rounded-md border overflow-x-auto">
+      {/* Фильтры по дате */}
+      <div className="mb-4 flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">Период с:</span>
+          <Input 
+            type="date" 
+            className="w-40"
+            value={startDate} 
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <span className="text-sm">по:</span>
+          <Input 
+            type="date" 
+            className="w-40"
+            value={endDate} 
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </div>
+        <div className="ml-auto text-sm text-muted-foreground">
+          <span className="font-semibold">Найдено карт:</span> {filteredCards.length} | 
+          <span className="font-semibold ml-2">Общая стоимость:</span> {formatAmount(summaryStats.totalCardPrice)}
+        </div>
+      </div>
+
+      <div className="rounded-md border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[60px]">
+              <TableHead className="w-[70px]">
                 <SortableHeader column="externalId" label="ID" />
               </TableHead>
               <TableHead>
@@ -221,64 +316,72 @@ export default function CardTable({
               <TableHead>
                 <SortableHeader column="phoneNumber" label="Телефон" />
               </TableHead>
-              <TableHead>
-                <SortableHeader column="appPin" label="PIN прил." />
-              </TableHead>
-              <TableHead>
-                <SortableHeader column="terminalPin" label="PIN терм." />
-              </TableHead>
-              <TableHead>
+              <TableHead className="w-[100px]">
                 <SortableHeader column="status" label="Статус" />
-              </TableHead>
-              <TableHead>
-                <SortableHeader column="collectorName" label="Инкассатор" />
-              </TableHead>
-              <TableHead>
-                <SortableHeader column="picachu" label="Пикачу" />
-              </TableHead>
-              <TableHead className="text-right">
-                <SortableHeader column="initialBalance" label="Нач. баланс" />
-              </TableHead>
-              <TableHead className="text-right">
-                <SortableHeader column="totalPoured" label="Пролито" />
-              </TableHead>
-              <TableHead className="text-right">
-                <SortableHeader column="lastBalance" label="Кон. баланс" />
-              </TableHead>
-              <TableHead className="text-right">
-                <SortableHeader column="withdrawal" label="Снято" />
               </TableHead>
               <TableHead className="text-right">
                 <SortableHeader column="cardPrice" label="Стоимость" />
+                {filteredCards.length > 0 && (
+                  <div className="text-xs font-normal text-muted-foreground">
+                    Всего: {formatAmount(summaryStats.totalCardPrice)}
+                  </div>
+                )}
               </TableHead>
-              <TableHead>
-                <SortableHeader column="isPaid" label="Оплачена" />
+              <TableHead className="text-right">
+                Оплата
+                {filteredCards.length > 0 && (
+                  <div className="text-xs font-normal text-muted-foreground">
+                    Оплачено: {formatAmount(summaryStats.totalPaidCardPrice)}
+                  </div>
+                )}
               </TableHead>
-              <TableHead>
-                <SortableHeader column="createdAt" label="Создана" />
+              <TableHead className="text-right">
+                Пролито
+                {filteredCards.length > 0 && (
+                  <div className="text-xs font-normal text-muted-foreground">
+                    Всего: {formatAmount(summaryStats.totalPoured)}
+                  </div>
+                )}
               </TableHead>
-              <TableHead className="w-[100px]">
-                <span className="sr-only">Действия</span>
+              <TableHead className="text-right">
+                Снято
+                {filteredCards.length > 0 && (
+                  <div className="text-xs font-normal text-muted-foreground">
+                    Всего: {formatAmount(summaryStats.totalWithdrawal)}
+                  </div>
+                )}
               </TableHead>
+              <TableHead className="text-right">
+                Баланс
+                {filteredCards.length > 0 && (
+                  <div className="text-xs font-normal text-muted-foreground">
+                    Всего: {formatAmount(summaryStats.totalLastBalance)}
+                  </div>
+                )}
+              </TableHead>
+              <TableHead className="w-[150px] text-center">Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {cards.map((card) => (
+            {filteredCards.map((card) => (
               <TableRow key={card.id}>
                 <TableCell>{card.externalId}</TableCell>
                 <TableCell>{card.provider}</TableCell>
                 <TableCell>{card.bank}</TableCell>
                 <TableCell>{card.cardNumber}</TableCell>
                 <TableCell>{card.phoneNumber}</TableCell>
-                <TableCell>{card.appPin}</TableCell>
-                <TableCell>{card.terminalPin}</TableCell>
                 <TableCell>
                   <StatusBadge status={card.status} />
                 </TableCell>
-                <TableCell>{card.collectorName || "-"}</TableCell>
-                <TableCell>{card.picachu || "-"}</TableCell>
                 <TableCell className="text-right font-medium">
-                  {formatAmount(card.initialBalance)}
+                  {formatAmount(card.cardPrice)}
+                </TableCell>
+                <TableCell className="text-right font-medium">
+                  {card.isPaid ? (
+                    <span className="text-green-600 font-medium">Да</span>
+                  ) : (
+                    <span className="text-red-600 font-medium">Нет</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right font-medium">
                   {formatAmount(card.totalPoured)}
@@ -295,6 +398,9 @@ export default function CardTable({
                   )}
                 </TableCell>
                 <TableCell className="text-right font-medium">
+                  {formatAmount(card.withdrawal)}
+                </TableCell>
+                <TableCell className="text-right font-medium">
                   {formatAmount(card.lastBalance)}
                   {card._count.balances > 0 && (
                     <Button
@@ -308,20 +414,6 @@ export default function CardTable({
                     </Button>
                   )}
                 </TableCell>
-                <TableCell className="text-right font-medium">
-                  {formatAmount(card.withdrawal)}
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  {formatAmount(card.cardPrice)}
-                </TableCell>
-                <TableCell>
-                  {card.isPaid ? (
-                    <span className="text-green-600 font-medium">Да</span>
-                  ) : (
-                    <span className="text-red-600 font-medium">Нет</span>
-                  )}
-                </TableCell>
-                <TableCell>{formatDate(card.createdAt)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <TooltipProvider>
@@ -342,77 +434,36 @@ export default function CardTable({
                       </Tooltip>
                     </TooltipProvider>
 
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => setCardForPourings(card)}
-                          >
-                            <DollarSign className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>История проливов</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => setCardForBalances(card)}
-                          >
-                            <WalletCards className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>История балансов</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => setCardForAuditLog(card.id)}
-                          >
-                            <History className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>История изменений</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-500"
-                            onClick={() => setCardToDelete(card.id)}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Удалить карту</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => setCardForPourings(card)}>
+                          <WalletCards className="mr-2 h-4 w-4" />
+                          <span>История проливов</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setCardForBalances(card)}>
+                          <DollarSign className="mr-2 h-4 w-4" />
+                          <span>Балансы карты</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setCardForAuditLog(card.id)}>
+                          <History className="mr-2 h-4 w-4" />
+                          <span>История изменений</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setCardToDelete(card.id)}>
+                          <Trash className="mr-2 h-4 w-4 text-red-500" />
+                          <span className="text-red-500">Удалить карту</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </TableCell>
               </TableRow>

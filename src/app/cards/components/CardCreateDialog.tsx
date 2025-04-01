@@ -13,7 +13,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "~/components/ui/dialog";
 import {
   Form,
@@ -65,11 +64,11 @@ const createCardSchema = z.object({
 type CreateCardFormValues = z.infer<typeof createCardSchema>;
 
 interface CardCreateDialogProps {
-  onCardCreated: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export default function CardCreateDialog({ onCardCreated }: CardCreateDialogProps) {
-  const [open, setOpen] = useState(false);
+export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialogProps) {
   const [activeTab, setActiveTab] = useState("details");
 
   // Используем хук формы с валидацией Zod
@@ -94,11 +93,18 @@ export default function CardCreateDialog({ onCardCreated }: CardCreateDialogProp
     },
   });
 
+  // Получаем функцию для обновления данных карт
+  const utils = api.useContext();
+
   // Мутация для создания карты
   const createCardMutation = api.cards.create.useMutation({
     onSuccess: () => {
-      onCardCreated();
-      setOpen(false);
+      // Обновляем кэш после успешного создания
+      void utils.cards.getAll.invalidate();
+      void utils.cards.getStats.invalidate();
+      
+      // Закрываем диалог и сбрасываем форму
+      onOpenChange(false);
       form.reset();
     },
     onError: (error) => {
@@ -116,13 +122,7 @@ export default function CardCreateDialog({ onCardCreated }: CardCreateDialogProp
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-1">
-          <Plus className="h-4 w-4" />
-          Добавить карту
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Создать новую карту</DialogTitle>
@@ -300,7 +300,7 @@ export default function CardCreateDialog({ onCardCreated }: CardCreateDialogProp
                       <FormItem>
                         <FormLabel>Пикачу</FormLabel>
                         <FormControl>
-                          <Input placeholder="Введите пикачу" {...field} />
+                          <Input placeholder="Пикачу" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -316,11 +316,7 @@ export default function CardCreateDialog({ onCardCreated }: CardCreateDialogProp
                       <FormItem>
                         <FormLabel>Стоимость карты</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            {...field}
-                          />
+                          <Input type="number" placeholder="Введите стоимость" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -329,20 +325,29 @@ export default function CardCreateDialog({ onCardCreated }: CardCreateDialogProp
                   
                   <FormField
                     control={form.control}
-                    name="comment"
+                    name="isPaid"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Комментарий</FormLabel>
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                         <FormControl>
-                          <Input placeholder="Комментарий к карте" {...field} />
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
                         </FormControl>
-                        <FormMessage />
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>
+                            Оплачена
+                          </FormLabel>
+                          <FormDescription>
+                            Отметьте, если карта уже оплачена
+                          </FormDescription>
+                        </div>
                       </FormItem>
                     )}
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">  
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="initialBalance"
@@ -352,13 +357,18 @@ export default function CardCreateDialog({ onCardCreated }: CardCreateDialogProp
                         <FormControl>
                           <Input
                             type="number"
-                            placeholder="0.00"
+                            placeholder="Введите начальный баланс"
                             {...field}
+                            value={field.value === undefined ? "" : field.value}
+                            onChange={(e) => {
+                              if (e.target.value === "") {
+                                field.onChange(undefined);
+                              } else {
+                                field.onChange(e);
+                              }
+                            }}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Оставьте пустым, если нет начального баланса
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -369,57 +379,56 @@ export default function CardCreateDialog({ onCardCreated }: CardCreateDialogProp
                     name="initialPouringAmount"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Начальное пополнение</FormLabel>
+                        <FormLabel>Начальная сумма</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
-                            placeholder="0.00"
+                            placeholder="Введите начальную сумму"
                             {...field}
+                            value={field.value === undefined ? "" : field.value}
+                            onChange={(e) => {
+                              if (e.target.value === "") {
+                                field.onChange(undefined);
+                              } else {
+                                field.onChange(e);
+                              }
+                            }}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Оставьте пустым, если нет начального пополнения
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
                 
-                <FormField
-                  control={form.control}
-                  name="isPaid"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Карта оплачена</FormLabel>
-                        <FormDescription>
-                          Отметьте, если карта была оплачена
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="comment"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Комментарий</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Введите комментарий" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </TabsContent>
             </Tabs>
-
+            
             <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setOpen(false)}
-                disabled={createCardMutation.isLoading}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
               >
                 Отмена
               </Button>
               <Button 
-                type="submit" 
+                type="submit"
                 disabled={createCardMutation.isLoading}
               >
                 {createCardMutation.isLoading && (

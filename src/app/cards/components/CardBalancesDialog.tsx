@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { format } from "date-fns";
+import { useState, useEffect, useMemo } from "react";
+import { format, subMonths } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Plus, Loader2, Pencil, Trash, AlertTriangle, History } from "lucide-react";
 import { z } from "zod";
@@ -80,12 +80,67 @@ export default function CardBalancesDialog({
   // Для просмотра истории изменений
   const [auditLogOpen, setAuditLogOpen] = useState(false);
   const [currentBalanceId, setCurrentBalanceId] = useState<number | null>(null);
+  
+  // Добавляем состояния для фильтрации по периоду
+  const [startDate, setStartDate] = useState<string>(
+    format(subMonths(new Date(), 1), "yyyy-MM-dd")
+  );
+  const [endDate, setEndDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [filteredBalances, setFilteredBalances] = useState<any[]>([]);
+
+  // Безопасный парсер даты
+  const safeParseDate = (dateString: string | Date | null | undefined): Date | null => {
+    if (!dateString) return null;
+    try {
+      return new Date(dateString);
+    } catch (e) {
+      console.error("Ошибка парсинга даты:", e);
+      return null;
+    }
+  };
 
   // Получаем историю балансов
   const { data: balances, isLoading: loadingBalances, refetch } = api.cardBalances.getByCardId.useQuery(
     { cardId: Number(card.id) },
     { enabled: open }
   );
+
+  // Эффект для фильтрации балансов по дате
+  useEffect(() => {
+    if (!balances) return;
+
+    const start = safeParseDate(startDate);
+    const end = safeParseDate(endDate);
+    if (!start || !end) {
+      setFilteredBalances(balances);
+      return;
+    }
+
+    // Устанавливаем конец дня для конечной даты
+    end.setHours(23, 59, 59, 999);
+
+    const filtered = balances.filter(balance => {
+      const balanceDate = safeParseDate(balance.date);
+      return balanceDate && balanceDate >= start && balanceDate <= end;
+    });
+
+    setFilteredBalances(filtered);
+  }, [balances, startDate, endDate]);
+
+  // Расчет суммарных показателей для фильтрованных данных
+  const summaryStats = useMemo(() => {
+    if (!filteredBalances?.length) return {
+      totalStartBalance: 0,
+      totalEndBalance: 0,
+      totalDifference: 0
+    };
+
+    return {
+      totalStartBalance: filteredBalances.reduce((sum, b) => sum + (b.startBalance || 0), 0),
+      totalEndBalance: filteredBalances.reduce((sum, b) => sum + (b.endBalance || 0), 0),
+      totalDifference: filteredBalances.reduce((sum, b) => sum + ((b.endBalance || 0) - (b.startBalance || 0)), 0)
+    };
+  }, [filteredBalances]);
 
   // Форма для добавления/редактирования баланса
   const form = useForm<BalanceFormValues>({
@@ -174,21 +229,35 @@ export default function CardBalancesDialog({
     }
   };
 
+  // Форматирование даты
+  const formatDate = (dateStr: string | Date | null | undefined) => {
+    if (!dateStr) return "—";
+    
+    try {
+      // Преобразуем строку в объект Date только если это строка
+      const dateObj = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+      return format(dateObj, "dd.MM.yyyy HH:mm", { locale: ru });
+    } catch (e) {
+      console.error("Ошибка форматирования даты:", e);
+      return "Некорректная дата";
+    }
+  };
+
   // Форматирование суммы
   const formatAmount = (amount: number | null | undefined) => {
     if (amount === null || amount === undefined) return "₽0.00";
     
-    return new Intl.NumberFormat("ru-RU", {
-      style: "currency",
-      currency: "RUB",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  // Форматирование даты
-  const formatDate = (date: Date | string) => {
-    return format(new Date(date), "dd.MM.yyyy HH:mm", { locale: ru });
+    try {
+      return new Intl.NumberFormat("ru-RU", {
+        style: "currency",
+        currency: "RUB",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    } catch (e) {
+      console.error("Ошибка форматирования суммы:", e);
+      return "₽0.00";
+    }
   };
 
   return (
@@ -202,31 +271,52 @@ export default function CardBalancesDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {/* Кнопка добавления и общая статистика */}
-          <div className="flex justify-between items-center mb-4">
-            <Button
-              onClick={() => {
-                setEditMode(false);
-                setEditingBalanceId(null);
-                form.reset({
-                  date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-                  startBalance: card.lastBalance || 0,
-                  endBalance: card.lastBalance || 0,
-                  comment: "",
-                });
-                setShowForm(true);
-              }}
-              className="flex items-center gap-1"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Добавить баланс</span>
-            </Button>
-            
-            {/* Общая статистика */}
-            <div className="text-sm text-muted-foreground">
-              <span className="font-semibold">Всего записей:</span> {balances?.length || 0} | 
-              <span className="font-semibold ml-2">Нач. баланс:</span> {formatAmount(card.initialBalance)} | 
-              <span className="font-semibold ml-2">Тек. баланс:</span> {formatAmount(card.lastBalance)}
+          {/* Фильтры и кнопка добавления */}
+          <div className="flex flex-col gap-4 mb-4">
+            <div className="flex justify-between items-center">
+              <Button
+                onClick={() => {
+                  setEditMode(false);
+                  setEditingBalanceId(null);
+                  form.reset({
+                    date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+                    startBalance: 0,
+                    endBalance: 0,
+                    comment: "",
+                  });
+                  setShowForm(true);
+                }}
+                className="flex items-center gap-1"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Добавить баланс</span>
+              </Button>
+              
+              {/* Общая статистика */}
+              <div className="text-sm text-muted-foreground">
+                <span className="font-semibold">Всего записей:</span> {filteredBalances?.length || 0} | 
+                <span className="font-semibold ml-2">Изменение:</span> {formatAmount(summaryStats.totalDifference)}
+              </div>
+            </div>
+
+            {/* Фильтры периода */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">Период с:</span>
+                <Input 
+                  type="date" 
+                  className="w-40"
+                  value={startDate} 
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+                <span className="text-sm">по:</span>
+                <Input 
+                  type="date" 
+                  className="w-40"
+                  value={endDate} 
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
@@ -331,23 +421,44 @@ export default function CardBalancesDialog({
             <div className="flex justify-center items-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : balances && balances.length > 0 ? (
+          ) : filteredBalances && filteredBalances.length > 0 ? (
             <div className="rounded-md border overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[70px]">ID</TableHead>
-                    <TableHead>Дата</TableHead>
-                    <TableHead className="text-right">Начальный баланс</TableHead>
-                    <TableHead className="text-right">Конечный баланс</TableHead>
-                    <TableHead className="text-right">Разница</TableHead>
-                    <TableHead>Комментарий</TableHead>
+                    <TableHead>Дата баланса</TableHead>
+                    <TableHead className="text-right">
+                      Начальный баланс
+                      {filteredBalances && filteredBalances.length > 0 && (
+                        <div className="text-xs font-normal text-muted-foreground">
+                          Всего: {formatAmount(summaryStats.totalStartBalance)}
+                        </div>
+                      )}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      Конечный баланс
+                      {filteredBalances && filteredBalances.length > 0 && (
+                        <div className="text-xs font-normal text-muted-foreground">
+                          Всего: {formatAmount(summaryStats.totalEndBalance)}
+                        </div>
+                      )}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      Разница
+                      {filteredBalances && filteredBalances.length > 0 && (
+                        <div className="text-xs font-normal text-muted-foreground">
+                          Всего: {formatAmount(summaryStats.totalDifference)}
+                        </div>
+                      )}
+                    </TableHead>
                     <TableHead className="w-[100px] text-center">Действия</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {balances.map((balance) => {
-                    const difference = balance.endBalance - balance.startBalance;
+                  {filteredBalances.map((balance) => {
+                    // Расчет разницы между конечным и начальным балансом
+                    const difference = (balance.endBalance || 0) - (balance.startBalance || 0);
                     
                     return (
                       <TableRow key={balance.id}>
@@ -356,10 +467,10 @@ export default function CardBalancesDialog({
                           {formatDate(balance.date)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatAmount(balance.startBalance)}
+                          {formatAmount(balance.startBalance || 0)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatAmount(balance.endBalance)}
+                          {formatAmount(balance.endBalance || 0)}
                         </TableCell>
                         <TableCell className="text-right">
                           <span className={difference > 0 ? "text-green-600" : difference < 0 ? "text-red-600" : ""}>

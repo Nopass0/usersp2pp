@@ -301,6 +301,7 @@ export const cardsRouter = createTRPCRouter({
             id: card.id
           },
           timestamp: new Date(),
+          cardId: card.id, // Используем новое поле для связи с картой
         }
       });
 
@@ -331,6 +332,7 @@ export const cardsRouter = createTRPCRouter({
               id: balance.id
             },
             timestamp: new Date(),
+            cardBalanceId: balance.id, // Используем новое поле для связи с балансом
           }
         });
       }
@@ -371,6 +373,7 @@ export const cardsRouter = createTRPCRouter({
               id: pouring.id
             },
             timestamp: new Date(),
+            cardPouringId: pouring.id, // Используем новое поле для связи с проливом
           }
         });
       }
