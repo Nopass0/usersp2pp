@@ -12,6 +12,7 @@ export const authRouter = createTRPCRouter({
           name: true,
           passCode: true,
           isActive: true,
+          role: true, // Добавляем выбор роли пользователя
         },
       });
 
@@ -29,6 +30,7 @@ export const authRouter = createTRPCRouter({
         id: true,
         name: true,
         passCode: true,
+        role: true, // Добавляем выбор роли пользователя
       },
     });
 

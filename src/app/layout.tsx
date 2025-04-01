@@ -5,6 +5,7 @@ import { Geist } from "next/font/google";
 import { TRPCReactProvider } from "~/trpc/react";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "~/components/theme/theme-provider";
+import { Navbar } from "~/components/ui/navbar";
 
 export const metadata: Metadata = {
   title: "Панель управления",
@@ -30,8 +31,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TRPCReactProvider>
-            {children}
-            <Toaster position="top-right" />
+            <div className="relative flex min-h-screen flex-col">
+              <Navbar />
+              <div className="flex-1">{children}</div>
+            </div>
+            <Toaster richColors />
           </TRPCReactProvider>
         </ThemeProvider>
       </body>

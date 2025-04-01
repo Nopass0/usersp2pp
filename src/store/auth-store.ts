@@ -6,6 +6,7 @@ interface User {
   id: number;
   name: string;
   passCode: string;
+  role: string; // Добавляем поле роли
 }
 
 interface AuthState {

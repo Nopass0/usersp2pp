@@ -19,7 +19,12 @@ export default function HomePage() {
         console.log("Auth status:", { isAuthenticated, user });
         
         if (isAuthenticated && user) {
-          router.push("/dashboard");
+          // Проверяем роль пользователя для определения куда перенаправить
+          if (user.role === "USERCARDS") {
+            router.push("/cards");
+          } else {
+            router.push("/dashboard");
+          }
         } else {
           router.push("/login");
         }
@@ -86,9 +91,15 @@ export default function HomePage() {
           <Button variant="outline" onClick={() => router.push("/login")}>
             Перейти на страницу входа
           </Button>
-          <Button onClick={() => router.push("/dashboard")}>
-            Перейти на дашборд
-          </Button>
+          {user?.role === "USERCARDS" ? (
+            <Button onClick={() => router.push("/cards")}>
+              Перейти на страницу карт
+            </Button>
+          ) : (
+            <Button onClick={() => router.push("/dashboard")}>
+              Перейти на дашборд
+            </Button>
+          )}
         </div>
       </div>
     </div>

@@ -25,9 +25,51 @@ export function middleware(request: NextRequest) {
   
   // Если пользователь авторизован и пытается получить доступ к странице входа
   if (authToken && isPublicPath) {
-    // Перенаправляем на дашборд
-    const dashboardUrl = new URL("/dashboard", request.url);
-    return NextResponse.redirect(dashboardUrl);
+    try {
+      // Декодируем токен для получения данных пользователя
+      const userData = JSON.parse(Buffer.from(authToken, 'base64').toString('utf-8'));
+      
+      // Проверяем роль пользователя
+      if (userData.role === 'USERCARDS') {
+        // Перенаправляем на страницу карт для пользователей с ролью USERCARDS
+        const cardsUrl = new URL("/cards", request.url);
+        return NextResponse.redirect(cardsUrl);
+      } else {
+        // Перенаправляем на дашборд для всех остальных пользователей
+        const dashboardUrl = new URL("/dashboard", request.url);
+        return NextResponse.redirect(dashboardUrl);
+      }
+    } catch (error) {
+      console.error("Ошибка при декодировании токена:", error);
+      // Если не удалось разобрать токен, перенаправляем на дашборд по умолчанию
+      const dashboardUrl = new URL("/dashboard", request.url);
+      return NextResponse.redirect(dashboardUrl);
+    }
+  }
+  
+  // Если пользователь авторизован и пытается открыть корневую страницу, 
+  // перенаправляем в зависимости от роли
+  if (authToken && pathname === "/") {
+    try {
+      // Декодируем токен для получения данных пользователя
+      const userData = JSON.parse(Buffer.from(authToken, 'base64').toString('utf-8'));
+      
+      // Проверяем роль пользователя
+      if (userData.role === 'USERCARDS') {
+        // Перенаправляем на страницу карт для пользователей с ролью USERCARDS
+        const cardsUrl = new URL("/cards", request.url);
+        return NextResponse.redirect(cardsUrl);
+      } else {
+        // Перенаправляем на дашборд для всех остальных пользователей
+        const dashboardUrl = new URL("/dashboard", request.url);
+        return NextResponse.redirect(dashboardUrl);
+      }
+    } catch (error) {
+      console.error("Ошибка при декодировании токена:", error);
+      // Если не удалось разобрать токен, перенаправляем на дашборд по умолчанию
+      const dashboardUrl = new URL("/dashboard", request.url);
+      return NextResponse.redirect(dashboardUrl);
+    }
   }
   
   // В других случаях продолжаем обычный поток
