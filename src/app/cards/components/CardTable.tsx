@@ -57,8 +57,9 @@ import CardBalancesDialog from "./CardBalancesDialog";
 import { Input } from "~/components/ui/input";
 
 // Определим типы для карты
-export type Card = {
+export interface Card {
   id: string;
+  letterCode?: string;
   externalId: number;
   provider: string;
   bank: string;

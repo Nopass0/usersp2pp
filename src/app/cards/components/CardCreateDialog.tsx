@@ -36,6 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 
 // Валидационная схема для формы создания карты
 const createCardSchema = z.object({
+  letterCode: z.string().optional(),
   provider: z.string().min(1, "Поставщик обязателен"),
   cardNumber: z.string().min(1, "Номер карты обязателен"),
   bank: z.string().min(1, "Банк обязателен"),
@@ -75,6 +76,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
   const form = useForm<CreateCardFormValues>({
     resolver: zodResolver(createCardSchema),
     defaultValues: {
+      letterCode: "",
       provider: "",
       cardNumber: "",
       bank: "",
@@ -147,6 +149,20 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
+                    name="letterCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Код буквы</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Например, А" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
                     name="externalId"
                     render={({ field }) => (
                       <FormItem>
@@ -158,7 +174,9 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                  
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="cardNumber"
@@ -172,9 +190,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+                  
                   <FormField
                     control={form.control}
                     name="provider"
@@ -188,7 +204,9 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                  
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="bank"
@@ -202,9 +220,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+                  
                   <FormField
                     control={form.control}
                     name="phoneNumber"
@@ -218,7 +234,9 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                  
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="terminalPin"
@@ -232,9 +250,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+                  
                   <FormField
                     control={form.control}
                     name="appPin"
@@ -248,7 +264,9 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                  
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="status"
