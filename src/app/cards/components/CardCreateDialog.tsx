@@ -40,7 +40,7 @@ const createCardSchema = z.object({
   cardNumber: z.string().min(1, "Номер карты обязателен"),
   bank: z.string().min(1, "Банк обязателен"),
   phoneNumber: z.string().min(1, "Номер телефона обязателен"),
-  appPin: z.coerce.number().int().min(1000, "Пин код должен содержать минимум 4 цифры").max(9999, "Пин код должен содержать максимум 4 цифры"),
+  appPin: z.coerce.number().int().optional(),
   terminalPin: z.string().min(1, "Пин терминала обязателен"),
   status: z.enum(["ACTIVE", "WARNING", "BLOCKED"]),
   collectorName: z.string().min(1, "Имя инкассатора обязательно"),
