@@ -262,7 +262,7 @@ export const cardsRouter = createTRPCRouter({
       pouringAmount: z.number().optional(),
       initialAmount: z.number().optional(),
       initialDate: z.string().optional(), // Accept string only, we'll parse it manually
-      collectorName: z.string().optional(),
+      collectorName: z.string().min(1),  // Делаем обязательным
       cardPrice: z.number().optional(),
       isPaid: z.boolean().optional(),
     }))
@@ -282,8 +282,8 @@ export const cardsRouter = createTRPCRouter({
       const card = await ctx.db.card.create({
         data: {
           ...cardData,
-          cardPrice,
-          isPaid
+          cardPrice: cardPrice ?? 0,
+          isPaid: isPaid ?? false
         },
       });
 
@@ -339,7 +339,10 @@ export const cardsRouter = createTRPCRouter({
       }
 
       // Create initial pouring if all required data is provided
-      if (pouringAmount !== undefined && initialAmount !== undefined) {
+      if (pouringAmount !== undefined || initialAmount !== undefined) {
+        // Используем любое непустое значение из двух полей
+        const finalPouringAmount = pouringAmount ?? initialAmount ?? 0;
+        
         // Safely parse the initialDate
         const parsedInitialDate = initialDate ? parseDate(initialDate) : new Date();
         
@@ -347,9 +350,9 @@ export const cardsRouter = createTRPCRouter({
           data: {
             cardId: card.id,
             pouringDate: new Date(),
-            initialAmount,
+            initialAmount: finalPouringAmount,
             initialDate: parsedInitialDate,
-            pouringAmount,
+            pouringAmount: finalPouringAmount,
             status: card.status,
             collectorName,
           }
@@ -366,9 +369,9 @@ export const cardsRouter = createTRPCRouter({
             newValue: {
               cardId: card.id,
               pouringDate: new Date(),
-              initialAmount,
+              initialAmount: finalPouringAmount,
               initialDate: parsedInitialDate,
-              pouringAmount,
+              pouringAmount: finalPouringAmount,
               status: card.status,
               collectorName,
               id: pouring.id

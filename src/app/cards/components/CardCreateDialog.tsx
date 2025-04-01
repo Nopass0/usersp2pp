@@ -41,7 +41,7 @@ const createCardSchema = z.object({
   cardNumber: z.string().min(1, "Номер карты обязателен"),
   bank: z.string().min(1, "Банк обязателен"),
   phoneNumber: z.string().min(1, "Номер телефона обязателен"),
-  appPin: z.coerce.number().int().optional(),
+  appPin: z.coerce.number().int().nullable(),
   terminalPin: z.string().min(1, "Пин терминала обязателен"),
   status: z.enum(["ACTIVE", "WARNING", "BLOCKED"]),
   collectorName: z.string().min(1, "Имя инкассатора обязательно"),
@@ -118,8 +118,11 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
   const onSubmit = (data: CreateCardFormValues) => {
     createCardMutation.mutate({
       ...data,
-      initialBalance: data.initialBalance || undefined,
-      initialPouringAmount: data.initialPouringAmount || undefined,
+      appPin: data.appPin ?? 0, // Обеспечиваем, что appPin всегда число
+      initialBalance: data.initialBalance,
+      pouringAmount: data.initialPouringAmount, // Переименовываем для API
+      initialAmount: data.initialPouringAmount, // Дублируем для совместимости
+      initialDate: new Date().toISOString(),
     });
   };
 
