@@ -246,6 +246,7 @@ export const cardsRouter = createTRPCRouter({
 
   create: publicProcedure
     .input(z.object({
+      letterCode: z.string().optional(),
       externalId: z.number().int(),
       provider: z.string().min(1),
       cardNumber: z.string().min(1),
@@ -384,6 +385,7 @@ export const cardsRouter = createTRPCRouter({
   update: publicProcedure
     .input(z.object({
       id: z.number().int(),
+      letterCode: z.string().optional(),
       externalId: z.number().int().optional(),
       provider: z.string().min(1).optional(),
       cardNumber: z.string().min(1).optional(),

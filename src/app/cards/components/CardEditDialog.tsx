@@ -32,17 +32,11 @@ import {
 } from "~/components/ui/select";
 import { Checkbox } from "~/components/ui/checkbox";
 import type { Card } from "./CardTable";
-import { type FieldPath } from "react-hook-form";
 
 // Валидационная схема для формы редактирования карты
 const editCardSchema = z.object({
-  externalId: z.coerce.number().int("Внешний ID должен быть целым числом"),
   provider: z.string().min(1, "Поставщик обязателен"),
-  cardNumber: z.string().min(1, "Номер карты обязателен"),
   bank: z.string().min(1, "Банк обязателен"),
-  phoneNumber: z.string().min(1, "Номер телефона обязателен"),
-  appPin: z.coerce.number().int("PIN приложения должен быть целым числом"),
-  terminalPin: z.string().min(1, "PIN терминала обязателен"),
   status: z.enum(["ACTIVE", "WARNING", "BLOCKED"]),
   collectorName: z.string().min(1, "Имя инкассатора обязательно"),
   picachu: z.string().min(1, "Пикачу обязателен"),
@@ -50,23 +44,12 @@ const editCardSchema = z.object({
     .number()
     .min(0, "Стоимость должна быть положительным числом"),
   isPaid: z.boolean().default(false),
-  comment: z.string().optional(),
 });
 
 type EditCardFormValues = z.infer<typeof editCardSchema>;
 
-// Проверяем, что все поля карты определены в интерфейсе Card
-type CardWithAllFields = Card & {
-  externalId: number;
-  cardNumber: string;
-  phoneNumber: string;
-  appPin: number;
-  terminalPin: string;
-  comment?: string | null;
-};
-
 interface CardEditDialogProps {
-  card: CardWithAllFields;
+  card: Card;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCardUpdated: () => void;
@@ -82,19 +65,13 @@ export default function CardEditDialog({
   const form = useForm<EditCardFormValues>({
     resolver: zodResolver(editCardSchema),
     defaultValues: {
-      externalId: card.externalId,
       provider: card.provider,
-      cardNumber: card.cardNumber,
       bank: card.bank,
-      phoneNumber: card.phoneNumber,
-      appPin: card.appPin,
-      terminalPin: card.terminalPin,
       status: card.status,
       collectorName: card.collectorName,
       picachu: card.picachu,
       cardPrice: card.cardPrice,
       isPaid: card.isPaid,
-      comment: card.comment || "",
     },
   });
 
@@ -132,21 +109,7 @@ export default function CardEditDialog({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="externalId" as FieldPath<EditCardFormValues>
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Внешний ID</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="Внешний ID" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="provider" as FieldPath<EditCardFormValues>
+                name="provider"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Поставщик</FormLabel>
@@ -157,26 +120,10 @@ export default function CardEditDialog({
                   </FormItem>
                 )}
               />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="cardNumber" as FieldPath<EditCardFormValues>
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Номер карты</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Введите номер карты" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               
               <FormField
                 control={form.control}
-                name="bank" as FieldPath<EditCardFormValues>
+                name="bank"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Банк</FormLabel>
@@ -192,51 +139,7 @@ export default function CardEditDialog({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="phoneNumber" as FieldPath<EditCardFormValues>
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Номер телефона</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Введите номер телефона" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="appPin" as FieldPath<EditCardFormValues>
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>PIN приложения</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="PIN приложения" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="terminalPin" as FieldPath<EditCardFormValues>
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>PIN терминала</FormLabel>
-                    <FormControl>
-                      <Input placeholder="PIN терминала" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="status" as FieldPath<EditCardFormValues>
+                name="status"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Статус</FormLabel>
@@ -259,42 +162,10 @@ export default function CardEditDialog({
                   </FormItem>
                 )}
               />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="collectorName" as FieldPath<EditCardFormValues>
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Инкассатор</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Имя инкассатора" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               
               <FormField
                 control={form.control}
-                name="picachu" as FieldPath<EditCardFormValues>
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Пикачу</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Пикачу" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="cardPrice" as FieldPath<EditCardFormValues>
+                name="cardPrice"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Стоимость карты</FormLabel>
@@ -309,19 +180,32 @@ export default function CardEditDialog({
                   </FormItem>
                 )}
               />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="collectorName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Инкассатор</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Имя инкассатора" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
               <FormField
                 control={form.control}
-                name="isPaid" as FieldPath<EditCardFormValues>
+                name="picachu"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center space-x-2 space-y-0 pt-4">
+                  <FormItem>
+                    <FormLabel>Пикачу</FormLabel>
                     <FormControl>
-                      <Checkbox 
-                        checked={field.value} 
-                        onCheckedChange={field.onChange}
-                      />
+                      <Input placeholder="Введите пикачу" {...field} />
                     </FormControl>
-                    <FormLabel>Карта оплачена</FormLabel>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -330,18 +214,25 @@ export default function CardEditDialog({
             
             <FormField
               control={form.control}
-              name="comment" as FieldPath<EditCardFormValues>
+              name="isPaid"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Комментарий</FormLabel>
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                   <FormControl>
-                    <Input placeholder="Комментарий" {...field} />
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
                   </FormControl>
-                  <FormMessage />
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Карта оплачена</FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      Отметьте, если карта была оплачена
+                    </p>
+                  </div>
                 </FormItem>
               )}
             />
-            
+
             <DialogFooter>
               <Button 
                 type="button" 

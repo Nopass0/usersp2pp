@@ -38,6 +38,7 @@ export default function CardCreateDialog({
 }: CardCreateDialogProps) {
   // Форма для создания карты
   const [formData, setFormData] = useState({
+    letterCode: "",
     externalId: 0,
     provider: "",
     cardNumber: "",
@@ -67,6 +68,7 @@ export default function CardCreateDialog({
       onOpenChange(false);
       utils.cards.getAll.invalidate();
       setFormData({
+        letterCode: "",
         externalId: 0,
         provider: "",
         cardNumber: "",
@@ -152,6 +154,7 @@ export default function CardCreateDialog({
     } : undefined;
     
     createCardMutation.mutate({
+      letterCode: formData.letterCode || undefined,
       externalId: formData.externalId,
       provider: formData.provider,
       cardNumber: formData.cardNumber,
@@ -186,6 +189,17 @@ export default function CardCreateDialog({
             {/* Вкладка с информацией о карте */}
             <TabsContent value="card-info" className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="letterCode">Буквенный код</Label>
+                  <Input
+                    id="letterCode"
+                    name="letterCode"
+                    value={formData.letterCode}
+                    onChange={handleChange}
+                    placeholder="Например, А"
+                  />
+                </div>
+                
                 <div className="space-y-2">
                   <Label htmlFor="externalId">Внешний ID</Label>
                   <Input
@@ -298,124 +312,124 @@ export default function CardCreateDialog({
                     id="cardPrice"
                     name="cardPrice"
                     type="number"
-                                       value={formData.cardPrice?.toString() || ""}
-                                       onChange={handleChange}
-                                     />
-                                   </div>
-                                   
-                                   <div className="flex items-center space-x-2 pt-4">
-                                     <Checkbox
-                                       id="isPaid"
-                                       checked={formData.isPaid}
-                                       onCheckedChange={handleCheckboxChange}
-                                     />
-                                     <Label htmlFor="isPaid">Карта оплачена</Label>
-                                   </div>
-                                 </div>
-                                 
-                                 <div className="space-y-2">
-                                   <Label htmlFor="comment">Комментарий</Label>
-                                   <Textarea
-                                     id="comment"
-                                     name="comment"
-                                     value={formData.comment}
-                                     onChange={handleChange}
-                                     rows={3}
-                                     placeholder="Добавьте комментарий к карте"
-                                   />
-                                 </div>
-                               </TabsContent>
-                               
-                               {/* Вкладка с начальным балансом */}
-                               <TabsContent value="initial-balance" className="space-y-4 pt-4">
-                                 <div className="space-y-2">
-                                   <Label htmlFor="initialBalance">Начальный баланс</Label>
-                                   <Input
-                                     id="initialBalance"
-                                     name="initialBalance"
-                                     type="number"
-                                     value={formData.initialBalance?.toString() || ""}
-                                     onChange={handleChange}
-                                     placeholder="Введите начальный баланс карты"
-                                   />
-                                   <p className="text-sm text-muted-foreground mt-1">
-                                     При указании начального баланса будет создана запись баланса с текущей датой
-                                   </p>
-                                 </div>
-                               </TabsContent>
-                               
-                               {/* Вкладка с начальным проливом */}
-                               <TabsContent value="initial-pouring" className="space-y-4 pt-4">
-                                 <div className="grid grid-cols-2 gap-4">
-                                   <div className="space-y-2">
-                                     <Label htmlFor="pouringAmount">Сумма пролива</Label>
-                                     <Input
-                                       id="pouringAmount"
-                                       name="pouringAmount"
-                                       type="number"
-                                       value={formData.initialPouring.pouringAmount?.toString() || ""}
-                                       onChange={handlePouringChange}
-                                       placeholder="Введите сумму пролива"
-                                     />
-                                   </div>
-                                   
-                                   <div className="space-y-2">
-                                     <Label htmlFor="initialAmount">Начальная сумма</Label>
-                                     <Input
-                                       id="initialAmount"
-                                       name="initialAmount"
-                                       type="number"
-                                       value={formData.initialPouring.initialAmount?.toString() || ""}
-                                       onChange={handlePouringChange}
-                                       placeholder="Введите начальную сумму"
-                                     />
-                                   </div>
-                                   
-                                   <div className="space-y-2">
-                                     <Label htmlFor="initialDate">Дата</Label>
-                                     <Input
-                                       id="initialDate"
-                                       name="initialDate"
-                                       type="date"
-                                       value={formData.initialPouring.initialDate}
-                                       onChange={handlePouringChange}
-                                     />
-                                   </div>
-                                   
-                                   <div className="space-y-2">
-                                     <Label htmlFor="collectorName">Имя инкассатора</Label>
-                                     <Input
-                                       id="collectorName"
-                                       name="collectorName"
-                                       value={formData.initialPouring.collectorName}
-                                       onChange={handlePouringChange}
-                                       placeholder="Введите имя инкассатора"
-                                     />
-                                   </div>
-                                 </div>
-                                 <p className="text-sm text-muted-foreground mt-1">
-                                   Для создания начального пролива необходимо заполнить все поля
-                                 </p>
-                               </TabsContent>
-                             </Tabs>
-                             
-                             <DialogFooter>
-                               <Button
-                                 type="button"
-                                 variant="outline"
-                                 onClick={() => onOpenChange(false)}
-                               >
-                                 Отмена
-                               </Button>
-                               <Button 
-                                 type="submit"
-                                 disabled={createCardMutation.isLoading}
-                               >
-                                 {createCardMutation.isLoading ? "Сохранение..." : "Сохранить"}
-                               </Button>
-                             </DialogFooter>
-                           </form>
-                         </DialogContent>
-                       </Dialog>
-                     );
-                   }
+                    value={formData.cardPrice?.toString() || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-2 pt-4">
+                  <Checkbox
+                    id="isPaid"
+                    checked={formData.isPaid}
+                    onCheckedChange={handleCheckboxChange}
+                  />
+                  <Label htmlFor="isPaid">Карта оплачена</Label>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="comment">Комментарий</Label>
+                <Textarea
+                  id="comment"
+                  name="comment"
+                  value={formData.comment}
+                  onChange={handleChange}
+                  rows={3}
+                  placeholder="Добавьте комментарий к карте"
+                />
+              </div>
+            </TabsContent>
+            
+            {/* Вкладка с начальным балансом */}
+            <TabsContent value="initial-balance" className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="initialBalance">Начальный баланс</Label>
+                <Input
+                  id="initialBalance"
+                  name="initialBalance"
+                  type="number"
+                  value={formData.initialBalance?.toString() || ""}
+                  onChange={handleChange}
+                  placeholder="Введите начальный баланс карты"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  При указании начального баланса будет создана запись баланса с текущей датой
+                </p>
+              </div>
+            </TabsContent>
+            
+            {/* Вкладка с начальным проливом */}
+            <TabsContent value="initial-pouring" className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pouringAmount">Сумма пролива</Label>
+                  <Input
+                    id="pouringAmount"
+                    name="pouringAmount"
+                    type="number"
+                    value={formData.initialPouring.pouringAmount?.toString() || ""}
+                    onChange={handlePouringChange}
+                    placeholder="Введите сумму пролива"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="initialAmount">Начальная сумма</Label>
+                  <Input
+                    id="initialAmount"
+                    name="initialAmount"
+                    type="number"
+                    value={formData.initialPouring.initialAmount?.toString() || ""}
+                    onChange={handlePouringChange}
+                    placeholder="Введите начальную сумму"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="initialDate">Дата</Label>
+                  <Input
+                    id="initialDate"
+                    name="initialDate"
+                    type="date"
+                    value={formData.initialPouring.initialDate}
+                    onChange={handlePouringChange}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="collectorName">Имя инкассатора</Label>
+                  <Input
+                    id="collectorName"
+                    name="collectorName"
+                    value={formData.initialPouring.collectorName}
+                    onChange={handlePouringChange}
+                    placeholder="Введите имя инкассатора"
+                  />
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Для создания начального пролива необходимо заполнить все поля
+              </p>
+            </TabsContent>
+          </Tabs>
+          
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Отмена
+            </Button>
+            <Button 
+              type="submit"
+              disabled={createCardMutation.isLoading}
+            >
+              {createCardMutation.isLoading ? "Сохранение..." : "Сохранить"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

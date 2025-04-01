@@ -209,6 +209,7 @@ model BybitMatch {
 
 model Card {
   id          Int           @id @default(autoincrement())
+  letterCode  String?       // Добавленное поле для одной буквы
   externalId  Int
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt

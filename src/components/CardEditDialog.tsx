@@ -24,6 +24,7 @@ import { Checkbox } from "~/components/ui/checkbox";
 // Определяем тип для карты
 interface CardType {
   id: number;
+  letterCode?: string | null;
   externalId: number;
   provider: string;
   cardNumber: string;
@@ -52,6 +53,7 @@ export default function CardEditDialog({
   // Форма для редактирования карты
   const [formData, setFormData] = useState<CardType>({
     id: 0,
+    letterCode: "",
     externalId: 0,
     provider: "",
     cardNumber: "",
@@ -120,6 +122,7 @@ export default function CardEditDialog({
     
     updateCardMutation.mutate({
       id: formData.id,
+      letterCode: formData.letterCode || undefined,
       externalId: formData.externalId,
       provider: formData.provider,
       cardNumber: formData.cardNumber,
@@ -237,6 +240,16 @@ export default function CardEditDialog({
                   <SelectItem value="BLOCKED">Блокирована</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="letterCode">Буквенный код</Label>
+              <Input
+                id="letterCode"
+                name="letterCode"
+                value={formData.letterCode || ""}
+                onChange={handleChange}
+              />
             </div>
             
             <div className="space-y-2">
