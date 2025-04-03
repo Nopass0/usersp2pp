@@ -1,7 +1,7 @@
 "use client";
 
 import { LogOut, Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useTheme } from "~/components/theme/theme-provider";
 import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 import { Button } from "~/components/ui/button";
@@ -11,17 +11,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { useAuthStore } from "~/store/auth-store";
 
 export function Navbar() {
   const { theme, setTheme } = useTheme();
+  const { logout } = useAuthStore();
   const router = useRouter();
   
-  // Мутация для выхода из аккаунта
-  const logoutMutation = api.auth.logout.useMutation({
-    onSuccess: () => {
-      router.push("/login");
-    },
-  });
+  // Обработчик выхода из системы
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
 
   return (
     <div className="border-b">
@@ -57,7 +58,7 @@ export function Navbar() {
           <Button 
             variant="outline" 
             size="icon" 
-            onClick={() => logoutMutation.mutate()}
+            onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
             <span className="sr-only">Выйти из аккаунта</span>

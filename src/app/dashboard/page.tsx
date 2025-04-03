@@ -177,7 +177,7 @@ export default function DashboardPage() {
               </Badge>
             )}
 
-            <Button
+            {/* <Button
               variant="ghost"
               size="icon"
               onClick={cycleTheme}
@@ -208,7 +208,7 @@ export default function DashboardPage() {
                   <span>Выйти</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu> */}
           </div>
         </div>
       </header>

@@ -319,7 +319,7 @@ export function StartSessionDialog({
                     <FormLabel className="text-base">
                       Выберите кабинеты для работы
                     </FormLabel>
-                    <div className="flex items-center gap-2 flex-wrap">
+                    {/* <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant={filterSelected === null ? "default" : "outline"} 
                         className="cursor-pointer"
                         onClick={() => setFilterSelected(null)}
@@ -340,7 +340,7 @@ export function StartSessionDialog({
                       >
                         Не выбранные ({cabinets.length - selectedCount})
                       </Badge>
-                    </div>
+                    </div> */}
                   </div>
                   
                   <FormField
@@ -359,7 +359,7 @@ export function StartSessionDialog({
                             />
                           </div>
                           
-                          <div className="flex flex-wrap items-center gap-2">
+                          {/* <div className="flex flex-wrap items-center gap-2">
                             <Select
                               value={sortBy}
                               onValueChange={(value) => setSortBy(value as "idexId" | "login")}
@@ -388,7 +388,7 @@ export function StartSessionDialog({
                                 </TabsTrigger>
                               </TabsList>
                             </Tabs>
-                          </div>
+                          </div> */}
                         </div>
                         
                         <div className="relative rounded-md border">

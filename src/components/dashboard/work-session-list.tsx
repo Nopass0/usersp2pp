@@ -86,8 +86,25 @@ export function WorkSessionList({
         duration: 2000,
       });
       
+      // Обновляем список сессий после успешного сохранения
+      // Обновляем данные в любом случае, чтобы изменения отображались немедленно
       if (onSessionUpdated) {
         onSessionUpdated();
+        
+        // Если диалог открыт, обновляем также выбранную сессию, чтобы она отражала актуальные данные
+        if (selectedSession) {
+          // Запоминаем ID текущей сессии
+          const sessionId = selectedSession.id;
+          
+          // После небольшой задержки обновляем текущую сессию, чтобы совпало с обновлением списка
+          setTimeout(() => {
+            // Находим обновленную сессию в списке
+            const updatedSession = sessions.find(session => session.id === sessionId);
+            if (updatedSession) {
+              setSelectedSession(updatedSession);
+            }
+          }, 300);
+        }
       }
     },
     onError: (error) => {
@@ -99,20 +116,25 @@ export function WorkSessionList({
 
   // Эффект для сохранения комментария при изменении debouncedComment
   useEffect(() => {
-    if (selectedSession && debouncedComment !== selectedSession.comment) {
+    // Проверяем, есть ли выбранная сессия и изменился ли комментарий
+    // Также проверяем, не пустой ли debouncedComment, чтобы избежать ненужных запросов
+    if (selectedSession && debouncedComment !== selectedSession.comment && debouncedComment !== undefined) {
       updateCommentMutation.mutate({
         sessionId: selectedSession.id,
         comment: debouncedComment,
       });
     }
-  }, [debouncedComment, selectedSession]);
+  }, [debouncedComment]); // Удаляем selectedSession из зависимостей эффекта
 
   // Эффект для обновления состояния comment при изменении selectedSession
+  // Важно: устанавливаем комментарий при каждом изменении сессии
   useEffect(() => {
     if (selectedSession) {
+      // Устанавливаем комментарий при каждом изменении выбранной сессии
+      // Это необходимо для отображения актуальных данных после обновления списка
       setComment(selectedSession.comment || "");
     }
-  }, [selectedSession]);
+  }, [selectedSession]); // Зависимость от всего объекта сессии, чтобы отслеживать изменения комментариев
 
   // Фильтрация сессий по поиску
   const filteredSessions = useMemo(() => {
@@ -378,7 +400,14 @@ export function WorkSessionList({
 
       <Dialog
         open={!!selectedSession}
-        onOpenChange={(open) => !open && setSelectedSession(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            // При закрытии диалога сбрасываем выбранную сессию
+            setSelectedSession(null);
+            // Также сбрасываем состояние комментария
+            setComment("");
+          }
+        }}
       >
         {selectedSession && (
           <DialogContent className="sm:max-w-[550px]">
