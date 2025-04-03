@@ -31,12 +31,19 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Checkbox } from "~/components/ui/checkbox";
+import { Textarea } from "~/components/ui/textarea";
 import type { Card } from "./CardTable";
 
 // Валидационная схема для формы редактирования карты
 const editCardSchema = z.object({
+  letterCode: z.string().optional(),
+  externalId: z.coerce.number().int().positive("ID должен быть положительным числом"),
   provider: z.string().min(1, "Поставщик обязателен"),
+  cardNumber: z.string().min(1, "Номер карты обязателен"),
   bank: z.string().min(1, "Банк обязателен"),
+  phoneNumber: z.string().min(1, "Номер телефона обязателен"),
+  appPin: z.coerce.number().int().optional(),
+  terminalPin: z.string().min(1, "Пин терминала обязателен"),
   status: z.enum(["ACTIVE", "WARNING", "BLOCKED"]),
   collectorName: z.string().min(1, "Имя инкассатора обязательно"),
   picachu: z.string().min(1, "Пикачу обязателен"),
@@ -44,6 +51,7 @@ const editCardSchema = z.object({
     .number()
     .min(0, "Стоимость должна быть положительным числом"),
   isPaid: z.boolean().default(false),
+  comment: z.string().optional(),
 });
 
 type EditCardFormValues = z.infer<typeof editCardSchema>;
@@ -65,13 +73,20 @@ export default function CardEditDialog({
   const form = useForm<EditCardFormValues>({
     resolver: zodResolver(editCardSchema),
     defaultValues: {
+      letterCode: card.letterCode || "",
+      externalId: card.externalId,
       provider: card.provider,
+      cardNumber: card.cardNumber,
       bank: card.bank,
+      phoneNumber: card.phoneNumber,
+      appPin: card.appPin,
+      terminalPin: card.terminalPin,
       status: card.status,
       collectorName: card.collectorName,
       picachu: card.picachu,
       cardPrice: card.cardPrice,
       isPaid: card.isPaid,
+      comment: card.comment || "",
     },
   });
 
@@ -109,6 +124,36 @@ export default function CardEditDialog({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
+                name="letterCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Код буквы</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Введите код буквы" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="externalId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ID</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Введите ID" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
                 name="provider"
                 render={({ field }) => (
                   <FormItem>
@@ -123,12 +168,72 @@ export default function CardEditDialog({
               
               <FormField
                 control={form.control}
+                name="cardNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Номер карты</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Введите номер карты" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
                 name="bank"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Банк</FormLabel>
                     <FormControl>
                       <Input placeholder="Введите банк" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Номер телефона</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Введите номер телефона" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="appPin"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Пин приложения</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Введите пин приложения" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="terminalPin"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Пин терминала</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Введите пин терминала" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -211,6 +316,20 @@ export default function CardEditDialog({
                 )}
               />
             </div>
+            
+            <FormField
+              control={form.control}
+              name="comment"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Комментарий</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Введите комментарий" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <FormField
               control={form.control}

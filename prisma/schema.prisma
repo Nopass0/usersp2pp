@@ -7,11 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  USER
-  USERCARDS
-}
-
 model User {
   id                  Int                  @id @default(autoincrement())
   name                String
@@ -21,13 +16,12 @@ model User {
   updatedAt           DateTime             @updatedAt
   lastNotification    DateTime?
   role                UserRole             @default(USER)
+  auditLogs           AuditLog[]
   bybitTransactions   BybitTransaction[]
   reportNotifications ReportNotification[]
   telegramAccounts    TelegramAccount[]
   transactions        Transaction[]
   workSessions        WorkSession[]
-
-  auditLogs AuditLog[] // Relation to audit logs initiated by this user
 }
 
 model TelegramAccount {
@@ -223,58 +217,47 @@ model Card {
   status      CardStatus    @default(ACTIVE)
   cardPrice   Float?
   isPaid      Boolean       @default(false)
+  letterCode  String?
+  auditLogs   AuditLog[]    @relation("CardAuditLogs")
   balances    CardBalance[]
   cardPouring CardPouring[]
-
-  auditLogs AuditLog[] @relation("CardAuditLogs") // Specific relation for Card logs
-}
-
-// --- Audit Log Model ---
-enum AuditAction {
-  CREATE
-  UPDATE
-  DELETE
 }
 
 model AuditLog {
-  id         Int         @id @default(autoincrement())
-  entityType String // e.g., "Card", "CardBalance", "CardPouring"
-  entityId   Int // Общий ID записи (используется только для отображения)
-  action     AuditAction
-  userId     Int
-  user       User        @relation(fields: [userId], references: [id])
-  timestamp  DateTime    @default(now())
-  oldValue   Json? // State before change (null for CREATE)
-  newValue   Json? // State after change (null for DELETE)
+  id            Int          @id @default(autoincrement())
+  entityType    String
+  entityId      Int
+  action        AuditAction
+  userId        Int
+  timestamp     DateTime     @default(now())
+  oldValue      Json?
+  newValue      Json?
+  cardBalanceId Int?
+  cardId        Int?
+  cardPouringId Int?
+  cardBalance   CardBalance? @relation("CardBalanceAuditLogs", fields: [cardBalanceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  card          Card?        @relation("CardAuditLogs", fields: [cardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cardPouring   CardPouring? @relation("CardPouringAuditLogs", fields: [cardPouringId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user          User         @relation(fields: [userId], references: [id])
 
-  // Разделение полей внешних ключей для разных типов сущностей
-  cardId        Int? // Новое поле для ID карты
-  cardBalanceId Int? // Новое поле для ID баланса карты
-  cardPouringId Int? // Новое поле для ID пролива карты
-
-  // Отношения через новые поля
-  card        Card?        @relation("CardAuditLogs", fields: [cardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cardBalance CardBalance? @relation("CardBalanceAuditLogs", fields: [cardBalanceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cardPouring CardPouring? @relation("CardPouringAuditLogs", fields: [cardPouringId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([entityType, entityId]) // Индекс для быстрого поиска логов по типу сущности
-  @@index([userId]) // Индекс для действий пользователя
-  @@index([cardId]) // Индекс для логов карт
-  @@index([cardBalanceId]) // Индекс для логов балансов
-  @@index([cardPouringId]) // Индекс для логов проливов
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([cardId])
+  @@index([cardBalanceId])
+  @@index([cardPouringId])
 }
 
 model CardBalance {
-  id           Int      @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   cardId       Int
   date         DateTime
   startBalance Float
   endBalance   Float
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  card         Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-
-  auditLogs AuditLog[] @relation("CardBalanceAuditLogs") // Specific relation for Balance logs
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  comment      String?
+  auditLogs    AuditLog[] @relation("CardBalanceAuditLogs")
+  card         Card       @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
   @@unique([cardId, date])
 }
@@ -290,6 +273,7 @@ model Salary {
   isActive    Boolean         @default(true)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  comment     String?
   FinRow      FinRow[]
   SalaryDebt  SalaryDebt[]
   payments    SalaryPayment[]
@@ -336,10 +320,9 @@ model CardPouring {
   status           CardStatus @default(ACTIVE)
   comment          String?
   createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt 
-  card             Card       @relation(fields: [cardId], references: [id], onDelete: Cascade) 
-
-  auditLogs AuditLog[] @relation("CardPouringAuditLogs") // Specific relation for Pouring logs
+  updatedAt        DateTime   @updatedAt
+  auditLogs        AuditLog[] @relation("CardPouringAuditLogs")
+  card             Card       @relation(fields: [cardId], references: [id], onDelete: Cascade)
 }
 
 model Cell {
@@ -528,6 +511,27 @@ model Table {
   Filter        Filter[]
   Row           Row[]
   Section       Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+}
+
+model Password {
+  id        Int      @id @default(autoincrement())
+  name      String
+  login     String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  comment   String?
+}
+
+enum UserRole {
+  USER
+  USERCARDS
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
 }
 
 enum IdexSyncOrderStatus {

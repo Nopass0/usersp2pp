@@ -29,30 +29,24 @@ export const cardBalancesRouter = createTRPCRouter({
     .input(
       z.object({
         cardId: z.number(),
-        amount: z.number().min(0),
+        date: z.string(),
+        startBalance: z.number().min(0),
+        endBalance: z.number().min(0),
+        comment: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { cardId, amount } = input;
+      const { cardId, date, startBalance, endBalance, comment } = input;
       const userId = ctx.session.user.id;
-
-      // Получаем последний баланс карты (если есть)
-      const lastBalance = await ctx.db.cardBalance.findFirst({
-        where: {
-          cardId: cardId,
-        },
-        orderBy: {
-          date: "desc",
-        },
-      });
 
       // Создание баланса
       const balance = await ctx.db.cardBalance.create({
         data: {
-          cardId: cardId,
-          date: new Date(),
-          startBalance: lastBalance?.endBalance || 0, // Используем последний баланс как начальный
-          endBalance: amount, // Новый баланс
+          cardId,
+          date: new Date(date),
+          startBalance,
+          endBalance,
+          comment,
         },
       });
 
@@ -60,15 +54,17 @@ export const cardBalancesRouter = createTRPCRouter({
       await ctx.db.auditLog.create({
         data: {
           entityId: balance.id,
-          entityType: "CARD_BALANCE",
+          entityType: "CardBalance",
           action: "CREATE",
           userId,
           newValue: {
-            cardId: cardId,
-            startBalance: balance.startBalance,
-            endBalance: balance.endBalance,
+            cardId,
+            startBalance,
+            endBalance,
             date: balance.date,
+            comment,
           },
+          cardBalanceId: balance.id, // Связь с балансом
         },
       });
 
@@ -80,12 +76,14 @@ export const cardBalancesRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.number(),
+        date: z.string().optional(),
         startBalance: z.number().min(0).optional(),
         endBalance: z.number().min(0).optional(),
+        comment: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
+      const { id, date, ...restData } = input;
       const userId = ctx.session.user.id;
 
       // Получаем старые данные для аудита
@@ -97,21 +95,28 @@ export const cardBalancesRouter = createTRPCRouter({
         throw new Error("Баланс не найден");
       }
 
+      // Преобразуем дату, если она передана
+      const dataToUpdate = {
+        ...restData,
+        ...(date ? { date: new Date(date) } : {}),
+      };
+
       // Обновляем баланс
       const updatedBalance = await ctx.db.cardBalance.update({
         where: { id },
-        data,
+        data: dataToUpdate,
       });
 
       // Запись в аудит лог
       await ctx.db.auditLog.create({
         data: {
           entityId: id,
-          entityType: "CARD_BALANCE",
+          entityType: "CardBalance",
           action: "UPDATE",
           userId,
           oldValue: oldBalance,
           newValue: updatedBalance,
+          cardBalanceId: id, // Связь с балансом
         },
       });
 
@@ -122,7 +127,7 @@ export const cardBalancesRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(
       z.object({
-        id: z.string(),
+        id: z.number(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -131,7 +136,7 @@ export const cardBalancesRouter = createTRPCRouter({
 
       // Сначала получим данные баланса для лога
       const balance = await ctx.db.cardBalance.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         include: { card: true },
       });
 
@@ -141,14 +146,14 @@ export const cardBalancesRouter = createTRPCRouter({
 
       // Удаление баланса
       await ctx.db.cardBalance.delete({
-        where: { id: parseInt(id) },
+        where: { id },
       });
 
       // Запись в аудит лог
       await ctx.db.auditLog.create({
         data: {
-          entityId: parseInt(id),
-          entityType: "CARD_BALANCE",
+          entityId: id,
+          entityType: "CardBalance",
           action: "DELETE",
           userId,
           oldValue: {
@@ -157,7 +162,9 @@ export const cardBalancesRouter = createTRPCRouter({
             endBalance: balance.endBalance,
             date: balance.date,
             cardNumber: balance.card.cardNumber,
+            comment: balance.comment,
           },
+          cardBalanceId: null, // Связь с удаленным балансом
         },
       });
 
