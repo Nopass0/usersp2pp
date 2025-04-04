@@ -29,6 +29,8 @@ export const cardsRouter = createTRPCRouter({
         status: z.string().optional(),
         collectorName: z.string().optional(),
         picachu: z.string().optional(),
+        letterCode: z.string().optional(),
+        inWork: z.enum(["all", "true", "false"]).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -43,6 +45,7 @@ export const cardsRouter = createTRPCRouter({
         status,
         collectorName,
         picachu,
+        letterCode
       } = input;
 
       // Создаем фильтр на основе параметров запроса
@@ -60,8 +63,10 @@ export const cardsRouter = createTRPCRouter({
           : {}),
         ...(provider ? { provider } : {}),
         ...(bank ? { bank } : {}),
+        ...(letterCode ? { letterCode } : {}),
         ...(status ? { status: status as CardStatusEnum } : {}),
         ...(picachu ? { picachu } : {}),
+        ...(input.inWork && input.inWork !== "all" ? { inWork: input.inWork === "true" } : {}),
       };
 
       // Вычисляем общее количество карт с учетом фильтров
@@ -139,6 +144,7 @@ export const cardsRouter = createTRPCRouter({
           ...card,
           totalPoured,
           lastBalance,
+          
           initialBalance,
           withdrawal,
           _count: {
@@ -146,6 +152,12 @@ export const cardsRouter = createTRPCRouter({
             balances: card.balances.length,
           }
         };
+      });
+
+      let letterCodes = await ctx.db.card.findMany({
+        select: { letterCode: true },
+        distinct: ["letterCode"],
+        where: { letterCode: { not: null } },
       });
 
       return {
@@ -163,6 +175,7 @@ export const cardsRouter = createTRPCRouter({
           statuses: Object.values(CardStatusEnum),
           collectorNames: pouringCollectorNames.map((c) => c.collectorName),
           picachus: picachus.map((p) => p.picachu),
+          letterCodes: letterCodes.map((l) => l.letterCode)
         },
       };
     }),
@@ -479,11 +492,57 @@ export const cardsRouter = createTRPCRouter({
       return { success: true, deletedCardId: input.id };
     }),
 
+  // Обновление активного метода оплаты
+  updatePaymentMethod: publicProcedure
+    .input(
+      z.object({
+        id: z.number().int(),
+        paymentMethod: z.enum(["c2c", "sbp"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, paymentMethod } = input;
+
+      // Получаем текущие данные для аудит-лога
+      const existingCard = await ctx.db.card.findUnique({
+        where: { id }
+      });
+
+      if (!existingCard) {
+        throw new Error(`Карта с ID ${id} не найдена`);
+      }
+
+      // Обновляем активный метод оплаты
+      const updatedCard = await ctx.db.card.update({
+        where: { id },
+        data: {
+          activePaymentMethod: paymentMethod,
+          updatedAt: new Date()
+        },
+      });
+
+      // Создаем запись в аудит логе
+      await ctx.db.auditLog.create({
+        data: {
+          entityType: "Card",
+          entityId: id,
+          action: "UPDATE",
+          userId: ctx.session?.user?.id || 0,
+          oldValue: { activePaymentMethod: existingCard.activePaymentMethod },
+          newValue: { activePaymentMethod: paymentMethod },
+          timestamp: new Date(),
+          cardId: id
+        }
+      });
+
+      return { success: true, card: updatedCard };
+    }),
+
   // Get unique values for filters
   getFilterOptions: publicProcedure
     .query(async ({ ctx }) => {
       try {
-        const [providers, banks, collectorNames, picachus] = await Promise.all([
+        const [providers, banks, collectorNames, picachus, letterCodes] = await Promise.all([
           ctx.db.card.findMany({
             select: { provider: true },
             distinct: ['provider'],
@@ -514,6 +573,16 @@ export const cardsRouter = createTRPCRouter({
             select: { picachu: true },
             distinct: ['picachu'],
           }),
+          ctx.db.card.findMany({
+            where: { 
+              letterCode: { 
+                not: null,
+                not: ""
+              } 
+            },
+            select: { letterCode: true },
+            distinct: ['letterCode'],
+          }),
         ]);
 
         return {
@@ -521,6 +590,7 @@ export const cardsRouter = createTRPCRouter({
           banks: banks.map(b => b.bank),
           collectorNames: collectorNames.map(c => c.collectorName).filter(Boolean),
           picachus: picachus.map(p => p.picachu).filter(Boolean),
+          letterCodes: letterCodes.map(lc => lc.letterCode).filter(Boolean),
         };
       } catch (error) {
         console.error("Error fetching filter options:", error);

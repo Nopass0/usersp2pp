@@ -37,6 +37,7 @@ import type { Card } from "./CardTable";
 // Валидационная схема для формы редактирования карты
 const editCardSchema = z.object({
   letterCode: z.string().optional(),
+  actor: z.string().optional(),
   externalId: z.coerce.number().int().positive("ID должен быть положительным числом"),
   provider: z.string().min(1, "Поставщик обязателен"),
   cardNumber: z.string().min(1, "Номер карты обязателен"),
@@ -51,6 +52,7 @@ const editCardSchema = z.object({
     .number()
     .min(0, "Стоимость должна быть положительным числом"),
   isPaid: z.boolean().default(false),
+  inWork: z.boolean().default(true),
   comment: z.string().optional(),
 });
 
@@ -74,6 +76,7 @@ export default function CardEditDialog({
     resolver: zodResolver(editCardSchema),
     defaultValues: {
       letterCode: card.letterCode || "",
+      actor: card.actor || "",
       externalId: card.externalId,
       provider: card.provider,
       cardNumber: card.cardNumber,
@@ -86,6 +89,7 @@ export default function CardEditDialog({
       picachu: card.picachu,
       cardPrice: card.cardPrice,
       isPaid: card.isPaid,
+      inWork: card.inWork,
       comment: card.comment || "",
     },
   });
@@ -319,6 +323,20 @@ export default function CardEditDialog({
             
             <FormField
               control={form.control}
+              name="actor"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Актер</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Введите актера" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
               name="comment"
               render={({ field }) => (
                 <FormItem>
@@ -346,6 +364,27 @@ export default function CardEditDialog({
                     <FormLabel>Карта оплачена</FormLabel>
                     <p className="text-sm text-muted-foreground">
                       Отметьте, если карта была оплачена
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="inWork"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>В работе</FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      Отметьте, если карта находится в работе
                     </p>
                   </div>
                 </FormItem>

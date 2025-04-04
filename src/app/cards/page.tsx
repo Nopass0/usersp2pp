@@ -36,6 +36,8 @@ export default function CardsPage() {
     status: "all",
     collectorName: "all",
     picachu: "all",
+    letterCode: "all",
+    inWork: "all",
   });
 
   // Dialog state
@@ -64,6 +66,8 @@ export default function CardsPage() {
       status: filters.status !== "all" ? filters.status : undefined,
       collectorName: filters.collectorName !== "all" ? filters.collectorName : undefined,
       picachu: filters.picachu !== "all" ? filters.picachu : undefined,
+      letterCode: filters.letterCode !== "all" ? filters.letterCode : undefined,
+      inWork: filters.inWork !== "all" ? filters.inWork : undefined,
     },
     {
       keepPreviousData: true,
@@ -91,6 +95,8 @@ export default function CardsPage() {
       status: "all",
       collectorName: "all",
       picachu: "all",
+      letterCode: "all",
+      inWork: "all",
     });
     setSearchQuery("");
     setPage(1);

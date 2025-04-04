@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ArrowUpDown,
   Edit,
@@ -10,7 +10,12 @@ import {
   Trash,
   ChevronLeft,
   ChevronRight,
-  CalendarIcon
+  CalendarIcon,
+  Info,
+  CreditCard,
+  Phone,
+  Check,
+  ClipboardList
 } from "lucide-react";
 import { format, subMonths } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -49,12 +54,21 @@ import {
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 import { CardStatus } from "@prisma/client";
-import StatusBadge from "./StatusBadge";
-import CardEditDialog from "./CardEditDialog";
-import AuditLogDialog from "~/components/AuditLogDialog";
-import CardPouringsDialog from "./CardPouringsDialog";
-import CardBalancesDialog from "./CardBalancesDialog";
+import StatusBadge from "~/app/cards/components/StatusBadge";
+import CardEditDialog from "~/app/cards/components/CardEditDialog";
+import AuditLogDialog from "~/app/cards/components/AuditLogDialog";
+import CardPouringsDialog from "~/app/cards/components/CardPouringsDialog";
+import CardBalancesDialog from "~/app/cards/components/CardBalancesDialog";
+import CardDetailsDialog from "~/app/cards/components/CardDetailsDialog";
 import { Input } from "~/components/ui/input";
+import { Switch } from "~/components/ui/switch";
+import { Label } from "~/components/ui/label";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "~/components/ui/tabs";
 
 // Определим типы для карты
 export interface Card {
@@ -75,6 +89,8 @@ export interface Card {
   comment?: string;
   createdAt: Date;
   updatedAt: Date;
+  inWork: boolean;
+  activePaymentMethod?: string; // Новое поле для хранения активного метода оплаты
   // Добавленные поля с агрегацией
   totalPoured: number;
   lastBalance: number;
@@ -121,7 +137,12 @@ export default function CardTable({
   const [cardForAuditLog, setCardForAuditLog] = useState<string | null>(null);
   const [cardForPourings, setCardForPourings] = useState<Card | null>(null);
   const [cardForBalances, setCardForBalances] = useState<Card | null>(null);
+  const [cardForDetails, setCardForDetails] = useState<Card | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [auditLogDialogOpen, setAuditLogDialogOpen] = useState(false);
+  const [activePaymentMethods, setActivePaymentMethods] = useState<Record<string, "c2c" | "sbp">>({}); // Хранит активный метод оплаты для каждой карты
 
   // Состояния для фильтра по дате
   const [startDate, setStartDate] = useState<string>(
@@ -158,31 +179,52 @@ export default function CardTable({
     }
   }, [cards, startDate, endDate]);
 
-  // Рассчитываем суммарные показатели
+  // Вычисляем статистику для таблицы
   const summaryStats = useMemo(() => {
     if (!filteredCards.length) {
       return {
         totalCardPrice: 0,
         totalPaidCardPrice: 0,
-        totalUnpaidCardPrice: 0,
         totalPoured: 0,
         totalWithdrawal: 0,
         totalLastBalance: 0,
+        totalInitialBalance: 0,
       };
     }
 
-    return {
-      totalCardPrice: filteredCards.reduce((sum, card) => sum + (card.cardPrice || 0), 0),
-      totalPaidCardPrice: filteredCards
-        .filter((card) => card.isPaid)
-        .reduce((sum, card) => sum + (card.cardPrice || 0), 0),
-      totalUnpaidCardPrice: filteredCards
-        .filter((card) => !card.isPaid)
-        .reduce((sum, card) => sum + (card.cardPrice || 0), 0),
-      totalPoured: filteredCards.reduce((sum, card) => sum + (card.totalPoured || 0), 0),
-      totalWithdrawal: filteredCards.reduce((sum, card) => sum + (card.withdrawal || 0), 0),
-      totalLastBalance: filteredCards.reduce((sum, card) => sum + (card.lastBalance || 0), 0),
-    };
+    return filteredCards.reduce(
+      (acc, card) => {
+        // Суммируем стоимость всех карт
+        acc.totalCardPrice += card.cardPrice || 0;
+
+        // Суммируем стоимость оплаченных карт
+        if (card.isPaid) {
+          acc.totalPaidCardPrice += card.cardPrice || 0;
+        }
+
+        // Суммируем общий объем проливов
+        acc.totalPoured += card.totalPoured || 0;
+
+        // Суммируем выплаты
+        acc.totalWithdrawal += card.withdrawal || 0;
+
+        // Суммируем текущие балансы (на конец пролива)
+        acc.totalLastBalance += card.lastBalance || 0;
+        
+        // Суммируем начальные балансы (на начало пролива)
+        acc.totalInitialBalance += card.initialBalance || 0;
+
+        return acc;
+      },
+      {
+        totalCardPrice: 0,
+        totalPaidCardPrice: 0,
+        totalPoured: 0,
+        totalWithdrawal: 0,
+        totalLastBalance: 0,
+        totalInitialBalance: 0,
+      }
+    );
   }, [filteredCards]);
 
   const deleteCardMutation = api.cards.delete.useMutation({
@@ -214,19 +256,60 @@ export default function CardTable({
 
   // Функция для форматирования сумм
   const formatAmount = (value: number | null | undefined) => {
-    if (value === null || value === undefined) return "₽0.00";
+    if (value === null || value === undefined) return "-";
+    return new Intl.NumberFormat("ru-RU", {
+      style: "currency",
+      currency: "RUB",
+      minimumFractionDigits: 2,
+    }).format(value);
+  };
 
-    try {
-      return new Intl.NumberFormat("ru-RU", {
-        style: "currency",
-        currency: "RUB",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
-    } catch (e) {
-      console.error("Ошибка форматирования суммы:", e);
-      return "₽0.00";
+  // Мутация для обновления активного метода оплаты
+  const updatePaymentMethodMutation = api.cards.updatePaymentMethod.useMutation({
+    onSuccess: () => {
+      // Можно добавить уведомление об успешном обновлении при необходимости
+    },
+    onError: (error) => {
+      console.error("Ошибка при обновлении метода оплаты:", error);
     }
+  });
+
+  // Функция для переключения активного метода оплаты
+  const togglePaymentMethod = async (cardId: string, method: "c2c" | "sbp") => {
+    // Обновляем локальное состояние для мгновенной обратной связи
+    setActivePaymentMethods(prev => ({
+      ...prev,
+      [cardId]: method
+    }));
+    
+    try {
+      // Сохраняем выбор в базе данных
+      await updatePaymentMethodMutation.mutateAsync({ 
+        id: parseInt(cardId), 
+        paymentMethod: method 
+      });
+    } catch (error) {
+      console.error("Ошибка при обновлении метода оплаты:", error);
+    }
+  };
+  
+  // Заполняем активные методы оплаты из полученных данных
+  useEffect(() => {
+    // При загрузке компонента загружаем активные методы оплаты для всех карт
+    if (cards.length > 0) {
+      const initialMethods: Record<string, "c2c" | "sbp"> = {};
+      cards.forEach(card => {
+        initialMethods[card.id] = (card.activePaymentMethod as "c2c" | "sbp") || "c2c";
+      });
+      setActivePaymentMethods(initialMethods);
+    }
+  }, [cards]);
+
+  // Добавляем функцию для открытия диалога истории всех изменений
+  const openFullAuditLog = () => {
+    setAuditLogDialogOpen(true);
+    // Используем null для id, чтобы показать все изменения
+    setSelectedCard(null);
   };
 
   const getSortIcon = (column: string) => {
@@ -298,6 +381,33 @@ export default function CardTable({
         </div>
       </div>
 
+      {/* Информация по выбору типа оплаты */}
+      <div className="flex items-center space-x-2 mb-4">
+        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+          <CreditCard className="h-4 w-4 text-green-600 mr-1" />
+          <span>C2C - активно (зеленый)</span>
+          <span className="mx-2">|</span>
+          <Phone className="h-4 w-4 text-red-600 mr-1" />
+          <span>СБП - неактивно (красный)</span>
+          <span className="mx-2">|</span>
+          <span>Нажмите на номер, чтобы сделать его активным методом оплаты</span>
+        </div>
+      </div>
+
+      {/* Кнопка просмотра всей истории изменений */}
+      <div className="flex justify-end mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={openFullAuditLog}
+        >
+          <History className="h-4 w-4" />
+          История всех изменений
+        </Button>
+      </div>
+
+      {/* Таблица карт */}
       <div className="rounded-md border overflow-hidden">
         <Table>
           <TableHeader>
@@ -306,38 +416,44 @@ export default function CardTable({
                 <SortableHeader column="externalId" label="ID" />
               </TableHead>
               <TableHead>
-                <SortableHeader column="provider" label="Поставщик" />
+                <SortableHeader column="letterCode" label="Код-буква" />
               </TableHead>
               <TableHead>
                 <SortableHeader column="bank" label="Банк" />
               </TableHead>
               <TableHead>
-                <SortableHeader column="cardNumber" label="Номер карты" />
+                <div className="flex items-center">
+                  <CreditCard className="mr-1 h-4 w-4 text-green-600" />
+                  <SortableHeader column="cardNumber" label="C2C" />
+                </div>
               </TableHead>
               <TableHead>
-                <SortableHeader column="phoneNumber" label="Телефон" />
+                <div className="flex items-center">
+                  <Phone className="mr-1 h-4 w-4 text-red-600" />
+                  <SortableHeader column="phoneNumber" label="СБП" />
+                </div>
               </TableHead>
-              <TableHead className="w-[100px]">
-                <SortableHeader column="status" label="Статус" />
+              <TableHead>
+                <SortableHeader column="inWork" label="В работе" />
               </TableHead>
               <TableHead className="text-right">
-                <SortableHeader column="cardPrice" label="Стоимость" />
+                <SortableHeader column="initialBalance" label="Баланс на начало" />
                 {filteredCards.length > 0 && (
                   <div className="text-xs font-normal text-muted-foreground">
-                    Всего: {formatAmount(summaryStats.totalCardPrice)}
+                    Всего: {formatAmount(summaryStats.totalInitialBalance)}
                   </div>
                 )}
               </TableHead>
               <TableHead className="text-right">
-                Оплата
+                <SortableHeader column="lastBalance" label="Баланс на конец" />
                 {filteredCards.length > 0 && (
                   <div className="text-xs font-normal text-muted-foreground">
-                    Оплачено: {formatAmount(summaryStats.totalPaidCardPrice)}
+                    Всего: {formatAmount(summaryStats.totalLastBalance)}
                   </div>
                 )}
               </TableHead>
               <TableHead className="text-right">
-                Пролито
+                <SortableHeader column="totalPoured" label="Пролито" />
                 {filteredCards.length > 0 && (
                   <div className="text-xs font-normal text-muted-foreground">
                     Всего: {formatAmount(summaryStats.totalPoured)}
@@ -345,18 +461,10 @@ export default function CardTable({
                 )}
               </TableHead>
               <TableHead className="text-right">
-                Снято
+                <SortableHeader column="withdrawal" label="Сумма выплат" />
                 {filteredCards.length > 0 && (
                   <div className="text-xs font-normal text-muted-foreground">
                     Всего: {formatAmount(summaryStats.totalWithdrawal)}
-                  </div>
-                )}
-              </TableHead>
-              <TableHead className="text-right">
-                Баланс
-                {filteredCards.length > 0 && (
-                  <div className="text-xs font-normal text-muted-foreground">
-                    Всего: {formatAmount(summaryStats.totalLastBalance)}
                   </div>
                 )}
               </TableHead>
@@ -367,21 +475,48 @@ export default function CardTable({
             {filteredCards.map((card) => (
               <TableRow key={card.id}>
                 <TableCell>{card.externalId}</TableCell>
-                <TableCell>{card.provider}</TableCell>
+                <TableCell>{card.letterCode || "-"}</TableCell>
                 <TableCell>{card.bank}</TableCell>
-                <TableCell>{card.cardNumber}</TableCell>
-                <TableCell>{card.phoneNumber}</TableCell>
                 <TableCell>
-                  <StatusBadge status={card.status} />
+                  <button 
+                    className={`flex items-center ${activePaymentMethods[card.id] === "c2c" ? "text-green-600" : "text-red-600"} hover:underline`}
+                    onClick={() => togglePaymentMethod(card.id, "c2c")}
+                  >
+                    {activePaymentMethods[card.id] === "c2c" && <Check className="h-3 w-3 mr-1" />}
+                    {card.cardNumber}
+                  </button>
                 </TableCell>
-                <TableCell className="text-right font-medium">
-                  {formatAmount(card.cardPrice)}
+                <TableCell>
+                  <button 
+                    className={`flex items-center ${activePaymentMethods[card.id] === "sbp" ? "text-green-600" : "text-red-600"} hover:underline`}
+                    onClick={() => togglePaymentMethod(card.id, "sbp")}
+                  >
+                    {activePaymentMethods[card.id] === "sbp" && <Check className="h-3 w-3 mr-1" />}
+                    {card.phoneNumber}
+                  </button>
                 </TableCell>
-                <TableCell className="text-right font-medium">
-                  {card.isPaid ? (
+                <TableCell>
+                  {card.inWork ? (
                     <span className="text-green-600 font-medium">Да</span>
                   ) : (
-                    <span className="text-red-600 font-medium">Нет</span>
+                    <span className="text-muted-foreground">Нет</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-medium">
+                  {formatAmount(card.initialBalance)}
+                </TableCell>
+                <TableCell className="text-right font-medium">
+                  {formatAmount(card.lastBalance)}
+                  {card._count.balances > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-1 h-6 w-auto px-2 py-0 text-xs"
+                      onClick={() => setCardForBalances(card)}
+                    >
+                      <WalletCards className="h-3 w-3 mr-1" />
+                      <span>История ({card._count.balances})</span>
+                    </Button>
                   )}
                 </TableCell>
                 <TableCell className="text-right font-medium">
@@ -394,29 +529,33 @@ export default function CardTable({
                       onClick={() => setCardForPourings(card)}
                     >
                       <DollarSign className="h-3 w-3 mr-1" />
-                      <span>Проливы ({card._count.cardPouring})</span>
+                      <span>История ({card._count.cardPouring})</span>
                     </Button>
                   )}
                 </TableCell>
                 <TableCell className="text-right font-medium">
                   {formatAmount(card.withdrawal)}
                 </TableCell>
-                <TableCell className="text-right font-medium">
-                  {formatAmount(card.lastBalance)}
-                  {card._count.balances > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="ml-1 h-6 w-auto px-2 py-0 text-xs"
-                      onClick={() => setCardForBalances(card)}
-                    >
-                      <WalletCards className="h-3 w-3 mr-1" />
-                      <span>Балансы ({card._count.balances})</span>
-                    </Button>
-                  )}
-                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setCardForDetails(card)}
+                          >
+                            <Info className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Подробности</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -454,14 +593,22 @@ export default function CardTable({
                           <DollarSign className="mr-2 h-4 w-4" />
                           <span>Балансы карты</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setCardForAuditLog(card.id)}>
-                          <History className="mr-2 h-4 w-4" />
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedCard(card);
+                          setAuditLogDialogOpen(true);
+                        }}>
+                          <ClipboardList className="mr-2 h-4 w-4" />
                           <span>История изменений</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setCardToDelete(card.id)}>
-                          <Trash className="mr-2 h-4 w-4 text-red-500" />
-                          <span className="text-red-500">Удалить карту</span>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedCard(card);
+                          setDeleteDialogOpen(true);
+                        }}
+                        className="text-destructive"
+                        >
+                          <Trash className="mr-2 h-4 w-4" />
+                          <span className="text-destructive">Удалить</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -515,30 +662,41 @@ export default function CardTable({
         </div>
       </div>
 
-      {/* Диалог подтверждения удаления */}
-      <AlertDialog open={cardToDelete !== null} onOpenChange={(open) => !open && setCardToDelete(null)}>
+      {/* Диалог удаления карты */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
             <AlertDialogDescription>
-              Это действие нельзя отменить. Карта будет удалена навсегда.
+              Это действие нельзя отменить. Карта будет удалена из базы данных.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteCard}
+              onClick={() => {
+                if (selectedCard) {
+                  deleteCardMutation.mutate({ id: parseInt(selectedCard.id) });
+                }
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Удалить"
-              )}
+              {deleteCardMutation.isLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Удалить
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Диалог истории изменений */}
+      <AuditLogDialog
+        entityId={selectedCard?.id || "all"}
+        entityType="CARD"
+        open={auditLogDialogOpen}
+        onOpenChange={setAuditLogDialogOpen}
+      />
 
       {/* Диалог редактирования карты */}
       {cardToEdit && (
@@ -577,6 +735,15 @@ export default function CardTable({
           open={cardForBalances !== null}
           onOpenChange={(open) => !open && setCardForBalances(null)}
           onBalanceAdded={onCardUpdated}
+        />
+      )}
+
+      {/* Диалог подробной информации */}
+      {cardForDetails && (
+        <CardDetailsDialog
+          card={cardForDetails}
+          open={cardForDetails !== null}
+          onOpenChange={(open) => !open && setCardForDetails(null)}
         />
       )}
     </>

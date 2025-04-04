@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "~/trpc/react";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -36,7 +36,7 @@ interface AuditLogEntry {
 }
 
 interface AuditLogDialogProps {
-  entityId: string;
+  entityId: string | "all";  // "all" для просмотра всех записей
   entityType: EntityType;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,10 +48,24 @@ export default function AuditLogDialog({
   open,
   onOpenChange,
 }: AuditLogDialogProps) {
-  const { data: auditLogs, isLoading } = api.auditLog.getByEntity.useQuery(
-    { entityId, entityType },
-    { enabled: open }
-  );
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  
+  // Выбор подходящего API метода в зависимости от entityId
+  const { data, isLoading } = 
+    entityId === "all" 
+      ? api.auditLog.getAll.useQuery(
+          { entityType, page, pageSize },
+          { enabled: open }
+        )
+      : api.auditLog.getByEntity.useQuery(
+          { entityId, entityType, page, pageSize },
+          { enabled: open }
+        );
+        
+  const auditLogs = data?.logs || [];
+  const totalCount = data?.totalCount || 0;
+  const totalPages = data?.totalPages || 1;
 
   const formatTimeAgo = (date: Date) => {
     return formatDistanceToNow(new Date(date), {
@@ -149,7 +163,9 @@ export default function AuditLogDialog({
         <DialogHeader>
           <DialogTitle>История изменений</DialogTitle>
           <DialogDescription>
-            Просмотр всех операций, выполненных с этой записью
+            {entityId === "all" 
+              ? "Просмотр всех операций в системе" 
+              : "Просмотр всех операций, выполненных с этой записью"}
           </DialogDescription>
         </DialogHeader>
 
@@ -167,6 +183,7 @@ export default function AuditLogDialog({
               <TableHeader>
                 <TableRow>
                   <TableHead>Действие</TableHead>
+                  <TableHead>Тип</TableHead>
                   <TableHead>Изменения</TableHead>
                   <TableHead>Пользователь</TableHead>
                   <TableHead>Время</TableHead>
@@ -176,6 +193,17 @@ export default function AuditLogDialog({
                 {auditLogs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell>{getActionBadge(log.action)}</TableCell>
+                    <TableCell>
+                      {log.entityType === "CARD" && (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Карта</Badge>
+                      )}
+                      {log.entityType === "BALANCE" && (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Баланс</Badge>
+                      )}
+                      {log.entityType === "POURING" && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Пролив</Badge>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {log.action === "CREATE" ? (
                         formatValue(log.newValue)
@@ -196,6 +224,46 @@ export default function AuditLogDialog({
                 ))}
               </TableBody>
             </Table>
+            
+            {/* Пагинация */}
+            <div className="flex items-center justify-between mt-4">
+              <div className="flex-1 text-sm text-muted-foreground">
+                Показано {auditLogs.length} из {totalCount} записей
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-sm font-medium">
+                  Страница {page} из {totalPages || 1}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page >= totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <select 
+                  className="h-8 rounded-md border border-input px-3 py-1 text-sm"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </select>
+              </div>
+            </div>
           </div>
         )}
       </DialogContent>

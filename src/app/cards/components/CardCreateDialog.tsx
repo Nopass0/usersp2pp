@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 // Валидационная схема для формы создания карты
 const createCardSchema = z.object({
   letterCode: z.string().optional(),
+  actor: z.string().optional(),
   provider: z.string().min(1, "Поставщик обязателен"),
   cardNumber: z.string().min(1, "Номер карты обязателен"),
   bank: z.string().min(1, "Банк обязателен"),
@@ -77,6 +78,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
     resolver: zodResolver(createCardSchema),
     defaultValues: {
       letterCode: "",
+      actor: "",
       provider: "",
       cardNumber: "",
       bank: "",
@@ -423,6 +425,20 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="actor"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Актер</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Введите актера" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
                   <FormField
                     control={form.control}
                     name="comment"

@@ -23,6 +23,7 @@ type FilterOptionsType = {
   banks?: string[];
   collectorNames?: string[];
   picachus?: string[];
+  letterCodes?: string[];
 };
 
 interface CardFiltersProps {
@@ -32,6 +33,8 @@ interface CardFiltersProps {
     status: string;
     collectorName: string;
     picachu: string;
+    letterCode: string;
+    inWork: string;
   };
   onFilterChange: (filterName: keyof typeof filters, value: string) => void;
   onClearFilters: () => void;
@@ -159,6 +162,43 @@ export default function CardFilters({
                   {p || "Неизвестно"}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="filter-letter-code">Код-буква</Label>
+          <Select
+            value={filters.letterCode}
+            onValueChange={(v) => onFilterChange("letterCode", v)}
+          >
+            <SelectTrigger id="filter-letter-code">
+              <SelectValue placeholder="Все" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все</SelectItem>
+              {filterOptions?.letterCodes?.map((l) => (
+                <SelectItem key={l} value={l || "unknown"}>
+                  {l || "Неизвестно"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="filter-in-work">В работе</Label>
+          <Select
+            value={filters.inWork}
+            onValueChange={(v) => onFilterChange("inWork", v)}
+          >
+            <SelectTrigger id="filter-in-work">
+              <SelectValue placeholder="Все" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все</SelectItem>
+              <SelectItem value="true">Да</SelectItem>
+              <SelectItem value="false">Нет</SelectItem>
             </SelectContent>
           </Select>
         </div>

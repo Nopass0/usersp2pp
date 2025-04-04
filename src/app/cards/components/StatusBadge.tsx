@@ -12,19 +12,19 @@ export default function StatusBadge({ status }: StatusBadgeProps) {
     case "ACTIVE":
       return (
         <Badge variant="success" className="flex items-center gap-1 whitespace-nowrap">
-          <CheckCircle size={14} /> Активна
+          <CheckCircle size={14} /> в офисе
         </Badge>
       );
     case "WARNING":
       return (
         <Badge variant="warning" className="flex items-center gap-1 whitespace-nowrap">
-          <AlertCircle size={14} /> Внимание
+          <AlertCircle size={14} /> у пикачу
         </Badge>
       );
     case "BLOCKED":
       return (
         <Badge variant="destructive" className="flex items-center gap-1 whitespace-nowrap">
-          <XCircle size={14} /> Блокирована
+          <XCircle size={14} /> заблокирована
         </Badge>
       );
     default:
