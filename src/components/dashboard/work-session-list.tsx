@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { format, formatDistance } from "date-fns";
 import { ru } from "date-fns/locale";
 import { 
@@ -12,7 +12,10 @@ import {
   CheckIcon, 
   SearchIcon,
   XIcon,
-  Edit2Icon
+  Edit2Icon,
+  PlusIcon,
+  TrashIcon,
+  TagIcon
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,6 +35,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "~/components/ui/popover";
+import { Checkbox } from "~/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "~/components/ui/sheet";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { useDebounce } from "~/hooks/use-debounce";
@@ -44,9 +63,17 @@ interface WorkSession {
   autoCompleted: boolean;
   userId: number;
   idexCabinets: {
-    id: number;
-    idexId: number;
-    login: string;
+    workSessionId: number;
+    idexCabinetId: number;
+    assignedAt: Date;
+    idexCabinet: {
+      id: number;
+      idexId: number;
+      login: string;
+      password: string;
+      createdAt: Date;
+      updatedAt: Date;
+    };
   }[];
   createdAt: Date;
   updatedAt: Date;
@@ -68,6 +95,10 @@ export function WorkSessionList({
   const [comment, setComment] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [isEditingCabinets, setIsEditingCabinets] = useState<boolean>(false);
+  const [cabinetSearchTerm, setCabinetSearchTerm] = useState<string>("");
+  const [selectedCabinetsToAdd, setSelectedCabinetsToAdd] = useState<number[]>([]);
+  const [selectedCabinetsToRemove, setSelectedCabinetsToRemove] = useState<number[]>([]);
   const itemsPerPage = 10;
   
   const debouncedComment = useDebounce(comment, 1000);
@@ -79,6 +110,57 @@ export function WorkSessionList({
   }, [debouncedSearch]);
 
   // Обновление комментария
+  // Получаем все кабинеты для выбора
+  const cabinetsQuery = api.idexCabinet.getAll.useQuery(undefined, {
+    enabled: !!selectedSession && isEditingCabinets,
+    staleTime: 30000, // Кэшируем на 30 секунд
+  });
+  
+  // Мутация для добавления кабинетов в сессию
+  const addCabinetsMutation = api.workSession.addCabinetsToSession.useMutation({
+    onSuccess: () => {
+      toast.success("Кабинеты добавлены в сессию", {
+        position: "bottom-right",
+        duration: 2000,
+      });
+      
+      // Сбрасываем выбранные кабинеты
+      setSelectedCabinetsToAdd([]);
+      // Обновляем данные
+      if (onSessionUpdated) {
+        onSessionUpdated();
+      }
+    },
+    onError: (error) => {
+      toast.error("Ошибка при добавлении кабинетов", {
+        description: error.message,
+      });
+    },
+  });
+  
+  // Мутация для удаления кабинетов из сессии
+  const removeCabinetsMutation = api.workSession.removeCabinetsFromSession.useMutation({
+    onSuccess: () => {
+      toast.success("Кабинеты удалены из сессии", {
+        position: "bottom-right",
+        duration: 2000,
+      });
+      
+      // Сбрасываем выбранные кабинеты
+      setSelectedCabinetsToRemove([]);
+      // Обновляем данные
+      if (onSessionUpdated) {
+        onSessionUpdated();
+      }
+    },
+    onError: (error) => {
+      toast.error("Ошибка при удалении кабинетов", {
+        description: error.message,
+      });
+    },
+  });
+  
+  // Мутация для обновления комментария
   const updateCommentMutation = api.workSession.updateSessionComment.useMutation({
     onSuccess: () => {
       toast.success("Комментарий сохранен", {
@@ -190,10 +272,16 @@ export function WorkSessionList({
 
   // Форматирование списка кабинетов
   const formatCabinets = (cabinets: WorkSession['idexCabinets']) => {
-    if (cabinets.length <= 2) {
-      return cabinets.map(cab => `ID: ${cab.idexId}`).join(', ');
+    if (!cabinets || cabinets.length === 0) {
+      return 'Не выбраны';
     }
-    return `ID: ${cabinets[0].idexId}, ${cabinets[1].idexId} +${cabinets.length - 2}`;
+    
+    return `${cabinets.length} кабинетов`;
+  };
+  
+  // Получить информацию о кабинете из структуры промежуточной таблицы
+  const getCabinetInfo = (cabinetRelation: WorkSession['idexCabinets'][0]) => {
+    return cabinetRelation.idexCabinet || { id: 0, idexId: 0, login: 'Неизвестный' };
   };
 
   if (isLoading) {
@@ -278,31 +366,24 @@ export function WorkSessionList({
                 </div>
                 
                 <div className="flex items-center text-sm">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="link" className="h-auto p-0 text-sm font-normal">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <TagIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
                         {formatCabinets(session.idexCabinets)}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <div className="space-y-2 p-3">
-                        <div className="font-medium">Кабинеты ({session.idexCabinets.length})</div>
-                        <div className="max-h-60 space-y-1 overflow-auto">
-                          {session.idexCabinets.map((cabinet) => (
-                            <div 
-                              key={cabinet.id} 
-                              className="flex justify-between rounded-md bg-muted/50 px-2 py-1.5 text-xs"
-                            >
-                              <span className="font-medium">ID: {cabinet.idexId}</span>
-                              <span className="text-muted-foreground">
-                                Логин: {cabinet.login}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                      </span>
+                    </div>
+                    {session.idexCabinets.length > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {session.idexCabinets.map((cabinet, index) => (
+                          <React.Fragment key={cabinet.idexCabinetId}>
+                            {index > 0 && " • "}
+                            ID: {getCabinetInfo(cabinet).idexId}
+                          </React.Fragment>
+                        ))}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 
                 {session.comment && (
@@ -404,8 +485,12 @@ export function WorkSessionList({
           if (!open) {
             // При закрытии диалога сбрасываем выбранную сессию
             setSelectedSession(null);
-            // Также сбрасываем состояние комментария
+            // Также сбрасываем все состояния
             setComment("");
+            setIsEditingCabinets(false);
+            setSelectedCabinetsToAdd([]);
+            setSelectedCabinetsToRemove([]);
+            setCabinetSearchTerm("");
           }
         }}
       >
@@ -479,23 +564,208 @@ export function WorkSessionList({
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-medium text-muted-foreground">
-                  Кабинеты Idex ({selectedSession.idexCabinets.length}):
-                </p>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Кабинеты Idex ({selectedSession.idexCabinets.length}):
+                  </p>
+                  <Sheet open={isEditingCabinets} onOpenChange={setIsEditingCabinets}>
+                    <SheetTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                      >
+                        <Edit2Icon className="mr-1 h-3 w-3" />
+                        Изменить
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right" className="w-[400px] sm:w-[540px]">
+                      <SheetHeader>
+                        <SheetTitle>Управление кабинетами</SheetTitle>
+                        <SheetDescription>
+                          Добавьте или удалите кабинеты из рабочей сессии
+                        </SheetDescription>
+                      </SheetHeader>
+                      
+                      <div className="mt-6 space-y-6">
+                        {/* Текущие кабинеты в сессии */}
+                        <div>
+                          <h3 className="mb-3 text-sm font-medium">Текущие кабинеты в сессии:</h3>
+                          
+                          {selectedSession.idexCabinets.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">В сессии нет кабинетов</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {selectedSession.idexCabinets.map((cabinetRelation) => {
+                                const cabinet = getCabinetInfo(cabinetRelation);
+                                return (
+                                  <div 
+                                    key={cabinetRelation.idexCabinetId}
+                                    className="flex items-center justify-between rounded-md border p-2"
+                                  >
+                                    <div>
+                                      <div className="font-medium">ID: {cabinet.idexId}</div>
+                                      <div className="text-xs text-muted-foreground">{cabinet.login}</div>
+                                    </div>
+                                    <Checkbox
+                                      checked={selectedCabinetsToRemove.includes(cabinetRelation.idexCabinetId)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setSelectedCabinetsToRemove([...selectedCabinetsToRemove, cabinetRelation.idexCabinetId]);
+                                        } else {
+                                          setSelectedCabinetsToRemove(
+                                            selectedCabinetsToRemove.filter(id => id !== cabinetRelation.idexCabinetId)
+                                          );
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              })}
+                              
+                              {selectedCabinetsToRemove.length > 0 && (
+                                <Button 
+                                  variant="destructive"
+                                  size="sm"
+                                  className="mt-2 w-full"
+                                  onClick={() => {
+                                    if (!selectedSession) return;
+                                    removeCabinetsMutation.mutate({
+                                      sessionId: selectedSession.id,
+                                      cabinetIds: selectedCabinetsToRemove
+                                    });
+                                  }}
+                                  disabled={removeCabinetsMutation.isPending}
+                                >
+                                  {removeCabinetsMutation.isPending ? (
+                                    <>Удаление...</>
+                                  ) : (
+                                    <>
+                                      <TrashIcon className="mr-2 h-4 w-4" />
+                                      Удалить выбранные ({selectedCabinetsToRemove.length})
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Доступные кабинеты для добавления */}
+                        <div>
+                          <h3 className="mb-3 text-sm font-medium">Добавить кабинеты:</h3>
+                          
+                          <div className="mb-4">
+                            <Input
+                              placeholder="Поиск по ID или логину..."
+                              value={cabinetSearchTerm}
+                              onChange={(e) => setCabinetSearchTerm(e.target.value)}
+                              className="mb-3"
+                            />
+                          </div>
+                          
+                          {cabinetsQuery.isLoading ? (
+                            <div className="space-y-2">
+                              <Skeleton className="h-10 w-full" />
+                              <Skeleton className="h-10 w-full" />
+                              <Skeleton className="h-10 w-full" />
+                            </div>
+                          ) : cabinetsQuery.data ? (
+                            <div className="max-h-[200px] space-y-2 overflow-y-auto">
+                              {cabinetsQuery.data
+                                .filter(cabinet => {
+                                  // Фильтруем только те кабинеты, которых еще нет в сессии
+                                  const cabinetIds = selectedSession.idexCabinets.map(
+                                    relation => relation.idexCabinetId
+                                  );
+                                  return !cabinetIds.includes(cabinet.id);
+                                })
+                                .filter(cabinet => {
+                                  // Применяем поиск
+                                  if (!cabinetSearchTerm) return true;
+                                  const searchLower = cabinetSearchTerm.toLowerCase();
+                                  return (
+                                    cabinet.idexId.toString().includes(searchLower) ||
+                                    cabinet.login.toLowerCase().includes(searchLower)
+                                  );
+                                })
+                                .map(cabinet => (
+                                  <div
+                                    key={cabinet.id}
+                                    className="flex items-center justify-between rounded-md border p-2"
+                                  >
+                                    <div>
+                                      <div className="font-medium">ID: {cabinet.idexId}</div>
+                                      <div className="text-xs text-muted-foreground">{cabinet.login}</div>
+                                    </div>
+                                    <Checkbox
+                                      checked={selectedCabinetsToAdd.includes(cabinet.id)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setSelectedCabinetsToAdd([...selectedCabinetsToAdd, cabinet.id]);
+                                        } else {
+                                          setSelectedCabinetsToAdd(
+                                            selectedCabinetsToAdd.filter(id => id !== cabinet.id)
+                                          );
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Не удалось загрузить кабинеты</p>
+                          )}
+                          
+                          {selectedCabinetsToAdd.length > 0 && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="mt-4 w-full"
+                              onClick={() => {
+                                if (!selectedSession) return;
+                                addCabinetsMutation.mutate({
+                                  sessionId: selectedSession.id,
+                                  cabinetIds: selectedCabinetsToAdd
+                                });
+                              }}
+                              disabled={addCabinetsMutation.isPending}
+                            >
+                              {addCabinetsMutation.isPending ? (
+                                <>Добавление...</>
+                              ) : (
+                                <>
+                                  <PlusIcon className="mr-2 h-4 w-4" />
+                                  Добавить выбранные ({selectedCabinetsToAdd.length})
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                </div>
+                
                 <div className="max-h-40 space-y-2 overflow-auto rounded-md border p-2">
-                  {selectedSession.idexCabinets.map((cabinet) => (
-                    <div
-                      key={cabinet.id}
-                      className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2"
-                    >
-                      <span className="text-sm font-medium">
-                        ID: {cabinet.idexId}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        Логин: {cabinet.login}
-                      </span>
-                    </div>
-                  ))}
+                  {selectedSession.idexCabinets.length === 0 ? (
+                    <p className="py-2 text-center text-sm text-muted-foreground">Нет кабинетов в сессии</p>
+                  ) : selectedSession.idexCabinets.map((cabinetRelation) => {
+                    const cabinet = getCabinetInfo(cabinetRelation);
+                    return (
+                      <div
+                        key={cabinetRelation.idexCabinetId}
+                        className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2"
+                      >
+                        <span className="text-sm font-medium">
+                          ID: {cabinet.idexId}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          Логин: {cabinet.login}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

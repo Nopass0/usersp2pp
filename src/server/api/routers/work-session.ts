@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { PrismaClient } from "@prisma/client";
 
 export const workSessionRouter = createTRPCRouter({
   // Получить активную сессию пользователя (без даты окончания)
@@ -12,7 +13,11 @@ export const workSessionRouter = createTRPCRouter({
           endTime: null,
         },
         include: {
-          idexCabinets: true,
+          idexCabinets: {
+            include: {
+              idexCabinet: true,
+            }
+          },
         },
         orderBy: {
           startTime: 'desc',
@@ -30,7 +35,11 @@ export const workSessionRouter = createTRPCRouter({
           userId: ctx.session.user.id,
         },
         include: {
-          idexCabinets: true,
+          idexCabinets: {
+            include: {
+              idexCabinet: true,
+            }
+          },
         },
         orderBy: {
           startTime: 'desc',
@@ -64,17 +73,28 @@ export const workSessionRouter = createTRPCRouter({
         });
       }
 
-      // Создаем новую сессию
+      // Создаем новую сессию с кабинетами
       const newSession = await ctx.db.workSession.create({
         data: {
           startTime: new Date(),
           userId: ctx.session.user.id,
+          comment: input.comment,
           idexCabinets: {
-            connect: input.cabinetIds.map(id => ({ id })),
+            create: input.cabinetIds.map(cabinetId => ({
+              idexCabinet: {
+                connect: {
+                  id: cabinetId
+                }
+              }
+            }))
           },
         },
         include: {
-          idexCabinets: true,
+          idexCabinets: {
+            include: {
+              idexCabinet: true,
+            }
+          },
         },
       });
 
@@ -112,18 +132,30 @@ export const workSessionRouter = createTRPCRouter({
       }
 
       const endTime = new Date();
-      const duration = Math.floor((endTime.getTime() - session.startTime.getTime()) / 1000);
+      // Правильный расчет длительности в секундах
+      const durationMs = endTime.getTime() - session.startTime.getTime();
+      const durationSec = Math.floor(durationMs / 1000);
+
+      const dataToUpdate: any = {
+        endTime,
+        duration: durationSec,
+      };
+
+      if (input.comment !== undefined) {
+        dataToUpdate.comment = input.comment;
+      }
 
       const updatedSession = await ctx.db.workSession.update({
         where: {
           id: input.sessionId,
         },
-        data: {
-          endTime,
-          duration,
-        },
+        data: dataToUpdate,
         include: {
-          idexCabinets: true,
+          idexCabinets: {
+            include: {
+              idexCabinet: true,
+            }
+          },
         },
       });
 
@@ -160,8 +192,135 @@ export const workSessionRouter = createTRPCRouter({
         data: {
           comment: input.comment,
         },
+        include: {
+          idexCabinets: {
+            include: {
+              idexCabinet: true,
+            }
+          },
+        },
       });
 
+      return updatedSession;
+    }),
+    
+  // Добавить кабинеты в сессию (работает для любых сессий - активных и завершенных)
+  addCabinetsToSession: protectedProcedure
+    .input(
+      z.object({
+        sessionId: z.number(),
+        cabinetIds: z.array(z.number()),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const session = await ctx.db.workSession.findUnique({
+        where: {
+          id: input.sessionId,
+          userId: ctx.session.user.id,
+        },
+        include: {
+          idexCabinets: true,
+        },
+      });
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Рабочая сессия не найдена',
+        });
+      }
+      
+      // Получаем текущие ID кабинетов в сессии
+      const existingCabinetLinks = await ctx.db.workSessionIdexCabinet.findMany({
+        where: {
+          workSessionId: input.sessionId,
+        },
+        select: {
+          idexCabinetId: true,
+        },
+      });
+      
+      const existingCabinetIds = existingCabinetLinks.map(link => link.idexCabinetId);
+      
+      // Фильтруем только новые кабинеты, которых еще нет в сессии
+      const newCabinetIds = input.cabinetIds.filter(
+        id => !existingCabinetIds.includes(id)
+      );
+      
+      // Добавляем новые кабинеты к сессии
+      if (newCabinetIds.length > 0) {
+        await ctx.db.workSessionIdexCabinet.createMany({
+          data: newCabinetIds.map(cabinetId => ({
+            workSessionId: input.sessionId,
+            idexCabinetId: cabinetId,
+          })),
+        });
+      }
+      
+      // Возвращаем обновленную сессию
+      const updatedSession = await ctx.db.workSession.findUnique({
+        where: {
+          id: input.sessionId,
+        },
+        include: {
+          idexCabinets: {
+            include: {
+              idexCabinet: true,
+            }
+          },
+        },
+      });
+      
+      return updatedSession;
+    }),
+    
+  // Удалить кабинеты из сессии (работает для любых сессий - активных и завершенных)
+  removeCabinetsFromSession: protectedProcedure
+    .input(
+      z.object({
+        sessionId: z.number(),
+        cabinetIds: z.array(z.number()),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const session = await ctx.db.workSession.findUnique({
+        where: {
+          id: input.sessionId,
+          userId: ctx.session.user.id,
+        },
+      });
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Рабочая сессия не найдена',
+        });
+      }
+      
+      // Удаляем связи между сессией и указанными кабинетами
+      await ctx.db.workSessionIdexCabinet.deleteMany({
+        where: {
+          workSessionId: input.sessionId,
+          idexCabinetId: {
+            in: input.cabinetIds,
+          },
+        },
+      });
+      
+      // Возвращаем обновленную сессию
+      const updatedSession = await ctx.db.workSession.findUnique({
+        where: {
+          id: input.sessionId,
+        },
+        include: {
+          idexCabinets: {
+            include: {
+              idexCabinet: true,
+            }
+          },
+        },
+      });
+      
       return updatedSession;
     }),
 });

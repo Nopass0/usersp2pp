@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { isEqual } from 'lodash';
 
 export interface IdexCabinetWithSelection extends IdexCabinet {
   selected: boolean;
@@ -23,6 +24,7 @@ interface WorkSessionState {
   resetState: () => void;
   resetCabinetSelections: () => void;
   selectAllCabinets: (selected: boolean) => void;
+  updateSelections: (selectedIds: number[]) => void;
   
   // Вспомогательные методы
   getSelectedCabinets: () => IdexCabinetWithSelection[];
@@ -62,6 +64,14 @@ export const useWorkSessionStore = create<WorkSessionState>()(
         comment: ''
       })),
       
+      // Обновить только выделение кабинетов без их удаления из списка
+      updateSelections: (selectedIds: number[]) => set((state) => ({
+        activeCabinets: state.activeCabinets.map(cabinet => ({
+          ...cabinet,
+          selected: selectedIds.includes(cabinet.id)
+        }))
+      })),
+      
       selectAllCabinets: (selected) => set((state) => ({
         activeCabinets: state.activeCabinets.map(cabinet => ({
           ...cabinet,
@@ -89,16 +99,37 @@ export const useWorkSessionStore = create<WorkSessionState>()(
           
         return {
           selectedCabinetIds: selectedIds,
+          // Сохраняем все кабинеты для возможности повторного использования
+          allCabinets: state.activeCabinets.map(({ id, idexId, login, password }) => ({ 
+            id, idexId, login, password 
+          })),
           comment: state.comment
         };
       },
       // Мерж сохраненного состояния с новым при загрузке
-      onRehydrateStorage: () => (state) => {
-        if (!state) return;
-        
-        // Здесь можно выполнить дополнительные действия при восстановлении 
-        // состояния, если необходимо
-        console.log("Work session store rehydrated");
+      onRehydrateStorage: () => (state, storageState) => {
+        if (!state || !storageState) return;
+
+        try {
+          const parsedState = JSON.parse(storageState as string);
+          const { selectedCabinetIds = [], allCabinets = [] } = parsedState.state;
+
+          // Не теряем кабинеты при инициализации, даже если они не выбраны
+          if (allCabinets && Array.isArray(allCabinets) && allCabinets.length > 0) {
+            // Добавляем поле selected каждому кабинету
+            const cabinetsWithSelection = allCabinets.map(cabinet => ({
+              ...cabinet,
+              selected: selectedCabinetIds.includes(cabinet.id)
+            }));
+            
+            // Обновляем хранилище
+            state.setActiveCabinets(cabinetsWithSelection);
+          }
+          
+          console.log("Work session store rehydrated with", allCabinets.length, "cabinets");
+        } catch (error) {
+          console.error("Error rehydrating work session store:", error);
+        }
       }
     }
   )

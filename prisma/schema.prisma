@@ -98,17 +98,17 @@ model BybitTransaction {
 }
 
 model WorkSession {
-  id            Int           @id @default(autoincrement())
+  id            Int                     @id @default(autoincrement())
   startTime     DateTime
   endTime       DateTime?
   duration      Int?
-  autoCompleted Boolean       @default(false)
+  autoCompleted Boolean                 @default(false)
   userId        Int
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
   comment       String?
-  idexCabinets  IdexCabinet[]
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idexCabinets  WorkSessionIdexCabinet[]
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ReportNotification {
@@ -124,6 +124,17 @@ model ReportNotification {
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model WorkSessionIdexCabinet {
+  workSessionId Int
+  idexCabinetId Int
+  assignedAt    DateTime @default(now())
+  
+  workSession   WorkSession @relation(fields: [workSessionId], references: [id], onDelete: Cascade)
+  idexCabinet   IdexCabinet @relation(fields: [idexCabinetId], references: [id], onDelete: Cascade)
+  
+  @@id([workSessionId, idexCabinetId])
+}
+
 model NotificationSettings {
   id        Int      @id @default(autoincrement())
   settings  Json
@@ -132,14 +143,13 @@ model NotificationSettings {
 }
 
 model IdexCabinet {
-  id            Int               @id @default(autoincrement())
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  id            Int                     @id @default(autoincrement())
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
   idexId        Int
   login         String
   password      String
-  workSessionId Int?
-  WorkSession   WorkSession?      @relation(fields: [workSessionId], references: [id])
+  workSessions  WorkSessionIdexCabinet[]
   IdexSyncOrder IdexSyncOrder[]
   transactions  IdexTransaction[]
 }
@@ -262,6 +272,13 @@ model CardBalance {
   @@unique([cardId, date])
 }
 
+enum PeriodType {
+  TWICE_MONTH
+  THRICE_MONTH
+  ONCE_MONTH
+
+}
+
 model Salary {
   id          Int             @id @default(autoincrement())
   fullName    String
@@ -270,6 +287,8 @@ model Salary {
   payday      Int
   paydayMonth Int?
   fixedSalary Float?
+  periodic    PeriodType @default(ONCE_MONTH)
+
   isActive    Boolean         @default(true)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt

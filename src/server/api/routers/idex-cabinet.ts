@@ -12,7 +12,7 @@ export const idexCabinetRouter = createTRPCRouter({
           orderBy: {
             idexId: 'asc',
           },
-          // Убедимся, что мы получаем все поля
+          // Получаем необходимые поля
           select: {
             id: true,
             idexId: true,
@@ -20,7 +20,7 @@ export const idexCabinetRouter = createTRPCRouter({
             password: true,
             createdAt: true,
             updatedAt: true,
-            workSessionId: true,
+            // Поле workSessions доступно, но не включаем его для списка всех кабинетов
           },
           // Не устанавливаем лимит, чтобы получить все записи
         });
@@ -50,7 +50,11 @@ export const idexCabinetRouter = createTRPCRouter({
             userId: ctx.session.user.id,
           },
           include: {
-            idexCabinets: true,
+            idexCabinets: {
+              include: {
+                idexCabinet: true
+              }
+            },
           },
         });
         
@@ -58,7 +62,8 @@ export const idexCabinetRouter = createTRPCRouter({
           return [];
         }
         
-        return workSession.idexCabinets;
+        // Преобразуем данные из промежуточной таблицы обратно в простой массив кабинетов
+        return workSession.idexCabinets.map(relation => relation.idexCabinet);
       } catch (error) {
         console.error("Error fetching session cabinets:", error);
         throw new TRPCError({

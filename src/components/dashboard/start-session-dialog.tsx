@@ -95,18 +95,22 @@ export function StartSessionDialog({
   // Эффект для обработки данных после их получения
   useEffect(() => {
     if (cabinetsQuery.data && Array.isArray(cabinetsQuery.data) && cabinetsQuery.data.length > 0) {
-      // Добавляем поле selected по умолчанию false
+      // Получаем текущие выбранные ID из стора
+      const selectedIds = useWorkSessionStore.getState().getSelectedIds();
+      
+      // Добавляем поле selected - сохраняем выделение, если кабинет был уже выбран
       const processedCabinets = cabinetsQuery.data.map(cabinet => ({
         ...cabinet,
-        selected: false
+        selected: selectedIds.includes(cabinet.id)
       }));
       
       // Устанавливаем в локальное состояние
       setCabinets(processedCabinets);
-      // И в глобальное хранилище
+      
+      // Обновляем стор, сохраняя выделение
       setActiveCabinets(processedCabinets);
       
-      console.log(`Processed ${processedCabinets.length} cabinets`);
+      console.log(`Processed ${processedCabinets.length} cabinets, ${selectedIds.length} were selected`);
     }
   }, [cabinetsQuery.data, setActiveCabinets]);
   
@@ -248,11 +252,13 @@ export function StartSessionDialog({
   };
   
   // Обработчик отправки формы
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    startSessionMutation.mutate({
-      cabinetIds: values.cabinetIds,
-      comment: values.comment,
-    });
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      await startSessionMutation.mutateAsync(values);
+    } catch (error) {
+      console.error('Error starting session:', error);
+      toast.error('Ошибка при создании сессии');
+    }
   };
   
   // Обработчик закрытия диалога
