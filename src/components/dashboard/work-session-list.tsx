@@ -162,28 +162,33 @@ export function WorkSessionList({
   
   // Мутация для обновления комментария
   const updateCommentMutation = api.workSession.updateSessionComment.useMutation({
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       toast.success("Комментарий сохранен", {
         position: "bottom-right",
         duration: 2000,
       });
       
-      // Обновляем список сессий после успешного сохранения
-      // Обновляем данные в любом случае, чтобы изменения отображались немедленно
+      // Обновляем данные
       if (onSessionUpdated) {
+        // Запоминаем текущий комментарий перед обновлением
+        const currentComment = comment;
+        
         onSessionUpdated();
         
-        // Если диалог открыт, обновляем также выбранную сессию, чтобы она отражала актуальные данные
+        // Если диалог открыт, обновляем выбранную сессию, но сохраняем текущий текст
         if (selectedSession) {
-          // Запоминаем ID текущей сессии
           const sessionId = selectedSession.id;
           
-          // После небольшой задержки обновляем текущую сессию, чтобы совпало с обновлением списка
           setTimeout(() => {
-            // Находим обновленную сессию в списке
             const updatedSession = sessions.find(session => session.id === sessionId);
             if (updatedSession) {
-              setSelectedSession(updatedSession);
+              // Создаем копию обновленной сессии, но с текущим комментарием
+              const sessionWithCurrentComment = {
+                ...updatedSession,
+                comment: currentComment // Сохраняем текущий ввод пользователя
+              };
+              
+              setSelectedSession(sessionWithCurrentComment);
             }
           }, 300);
         }
@@ -196,27 +201,26 @@ export function WorkSessionList({
     },
   });
 
-  // Эффект для сохранения комментария при изменении debouncedComment
   useEffect(() => {
     // Проверяем, есть ли выбранная сессия и изменился ли комментарий
-    // Также проверяем, не пустой ли debouncedComment, чтобы избежать ненужных запросов
     if (selectedSession && debouncedComment !== selectedSession.comment && debouncedComment !== undefined) {
+      // Сохраняем текущее значение comment перед отправкой запроса
+      const commentToSave = debouncedComment;
+      
       updateCommentMutation.mutate({
         sessionId: selectedSession.id,
-        comment: debouncedComment,
+        comment: commentToSave,
       });
     }
-  }, [debouncedComment]); // Удаляем selectedSession из зависимостей эффекта
+  }, [debouncedComment]);
 
-  // Эффект для обновления состояния comment при изменении selectedSession
-  // Важно: устанавливаем комментарий при каждом изменении сессии
-  useEffect(() => {
-    if (selectedSession) {
-      // Устанавливаем комментарий при каждом изменении выбранной сессии
-      // Это необходимо для отображения актуальных данных после обновления списка
-      setComment(selectedSession.comment || "");
-    }
-  }, [selectedSession]); // Зависимость от всего объекта сессии, чтобы отслеживать изменения комментариев
+// Эффект для обновления состояния comment при изменении selectedSession
+useEffect(() => {
+  if (selectedSession && !updateCommentMutation.isPending) {
+    // Устанавливаем комментарий только если мутация не выполняется
+    setComment(selectedSession.comment || "");
+  }
+}, [selectedSession, updateCommentMutation.isPending]);
 
   // Фильтрация сессий по поиску
   const filteredSessions = useMemo(() => {

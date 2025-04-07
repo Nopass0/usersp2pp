@@ -61,6 +61,7 @@ const createCardSchema = z.object({
     .number()
     .min(0, "Начальная сумма пополнения должна быть положительным числом")
     .optional(),
+  actor: z.string().optional(),
 });
 
 type CreateCardFormValues = z.infer<typeof createCardSchema>;
@@ -94,6 +95,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
       externalId: undefined,
       initialBalance: undefined,
       initialPouringAmount: undefined,
+      actor: "",
     },
   });
 
@@ -302,7 +304,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
               
               <TabsContent value="additional" className="space-y-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField
+                  {/* <FormField
                     control={form.control}
                     name="collectorName"
                     render={({ field }) => (
@@ -314,7 +316,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  /> */}
                   
                   <FormField
                     control={form.control}

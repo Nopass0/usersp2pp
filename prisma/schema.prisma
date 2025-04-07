@@ -211,28 +211,28 @@ model BybitMatch {
 }
 
 model Card {
-  id                 Int           @id @default(autoincrement())
-  externalId         Int
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  provider           String
-  cardNumber         String
-  bank               String
-  phoneNumber        String
-  appPin             Int
-  terminalPin        String
-  comment            String?
-  picachu            String?
-  status             CardStatus    @default(ACTIVE)
-  cardPrice          Float?
-  isPaid             Boolean       @default(false)
-  letterCode         String?
-  actor              String?
-  inWork             Boolean       @default(true)    // Находится ли карта в работе
-  activePaymentMethod String?      @default("c2c")  // Активный метод оплаты: "c2c" или "sbp"
-  auditLogs   AuditLog[]    @relation("CardAuditLogs")
-  balances    CardBalance[]
-  cardPouring CardPouring[]
+  id                  Int           @id @default(autoincrement())
+  externalId          Int
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  provider            String
+  cardNumber          String
+  bank                String
+  phoneNumber         String
+  appPin              Int
+  terminalPin         String
+  comment             String?
+  picachu             String?
+  status              CardStatus    @default(ACTIVE)
+  cardPrice           Float?
+  isPaid              Boolean       @default(false)
+  letterCode          String?
+  actor               String?
+  inWork              Boolean       @default(false)
+  activePaymentMethod String?       @default("c2c")
+  auditLogs           AuditLog[]    @relation("CardAuditLogs")
+  balances            CardBalance[]
+  cardPouring         CardPouring[]
 }
 
 model AuditLog {
@@ -416,12 +416,14 @@ model FinRow {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime
   currency      String          @default("RUB")
+  section       SalarySection   @default(PAYMENTS)
+  exchangeRate  Float?
   Salary        Salary?         @relation(fields: [employeeId], references: [id])
   FinRowExpense FinRowExpense[]
 }
 
 model FinRowExpense {
-  id          Int      @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   finRowId    Int?
   expenseType String
   amount      Float
@@ -429,10 +431,11 @@ model FinRowExpense {
   time        String
   period      String?
   description String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime      @default(now())
   updatedAt   DateTime
-  currency    String   @default("RUB")
-  FinRow      FinRow?  @relation(fields: [finRowId], references: [id])
+  currency    String        @default("RUB")
+  section     SalarySection @default(PAYMENTS)
+  FinRow      FinRow?       @relation(fields: [finRowId], references: [id])
 }
 
 model ImportExport {

@@ -88,6 +88,7 @@ export interface Card {
   isPaid: boolean;
   comment?: string;
   createdAt: Date;
+  actor?:   String;
   updatedAt: Date;
   inWork: boolean;
   activePaymentMethod?: string; // Новое поле для хранения активного метода оплаты

@@ -271,6 +271,7 @@ export const cardsRouter = createTRPCRouter({
       status: CardStatusEnum.default("ACTIVE"),
       picachu: z.string().optional(),
       initialBalance: z.number().optional(),
+      actor: z.string().optional(),
       // Initial pouring data if provided
       pouringAmount: z.number().optional(),
       initialAmount: z.number().optional(),
@@ -288,6 +289,7 @@ export const cardsRouter = createTRPCRouter({
         collectorName,
         cardPrice,
         isPaid,
+        actor,
         ...cardData 
       } = input;
       
@@ -296,7 +298,8 @@ export const cardsRouter = createTRPCRouter({
         data: {
           ...cardData,
           cardPrice: cardPrice ?? 0,
-          isPaid: isPaid ?? false
+          isPaid: isPaid ?? false,
+          actor: actor ?? "",
         },
       });
 
@@ -312,6 +315,7 @@ export const cardsRouter = createTRPCRouter({
             ...cardData,
             cardPrice,
             isPaid,
+            actor,
             id: card.id
           },
           timestamp: new Date(),
@@ -343,7 +347,8 @@ export const cardsRouter = createTRPCRouter({
               date: new Date(),
               startBalance: initialBalance,
               endBalance: initialBalance,
-              id: balance.id
+              id: balance.id,
+              actor: actor ?? "",
             },
             timestamp: new Date(),
             cardBalanceId: balance.id, // Используем новое поле для связи с балансом
@@ -367,7 +372,8 @@ export const cardsRouter = createTRPCRouter({
             initialDate: parsedInitialDate,
             pouringAmount: finalPouringAmount,
             status: card.status,
-            collectorName,
+            collectorName: collectorName ?? "",
+            actor: actor ?? "",
           }
         });
 
@@ -386,7 +392,8 @@ export const cardsRouter = createTRPCRouter({
               initialDate: parsedInitialDate,
               pouringAmount: finalPouringAmount,
               status: card.status,
-              collectorName,
+              collectorName: collectorName ?? "",
+              actor: actor ?? "",
               id: pouring.id
             },
             timestamp: new Date(),
@@ -414,6 +421,7 @@ export const cardsRouter = createTRPCRouter({
       picachu: z.string().optional(),
       cardPrice: z.number().or(z.string()).optional(),
       isPaid: z.boolean().optional(),
+      actor: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const { id, ...updateData } = input;
@@ -450,7 +458,7 @@ export const cardsRouter = createTRPCRouter({
           userId: ctx.session?.user?.id || 0,
           oldValue: existingCard,
           newValue: updatedCard,
-          timestamp: new Date(),
+
         }
       });
 
@@ -486,6 +494,7 @@ export const cardsRouter = createTRPCRouter({
           oldValue: cardToDelete,
           newValue: null,
           timestamp: new Date(),
+
         }
       });
 
@@ -531,7 +540,8 @@ export const cardsRouter = createTRPCRouter({
           oldValue: { activePaymentMethod: existingCard.activePaymentMethod },
           newValue: { activePaymentMethod: paymentMethod },
           timestamp: new Date(),
-          cardId: id
+          cardId: id,
+    
         }
       });
 
