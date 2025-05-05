@@ -58,13 +58,6 @@ export const cardsRouter = createTRPCRouter({
                 ...(!isNaN(parseInt(searchQuery))
                   ? [{ externalId: parseInt(searchQuery) }]
                   : []),
-                { provider: { contains: searchQuery, mode: "insensitive" } },
-                { bank: { contains: searchQuery, mode: "insensitive" } },
-                { cardNumber: { contains: searchQuery, mode: "insensitive" } },
-                { phoneNumber: { contains: searchQuery, mode: "insensitive" } },
-                { picachu: { contains: searchQuery, mode: "insensitive" } },
-                // Optional: Also search by letterCode if needed
-                { letterCode: { contains: searchQuery, mode: "insensitive" } },
               ],
             }
           : {}),
@@ -440,7 +433,6 @@ export const cardsRouter = createTRPCRouter({
         inWork: z.boolean().optional(),
         terminalPin: z.string().min(1).optional(),
         comment: z.string().optional(),
-        collectorName: z.string().optional(),
         status: CardStatusEnum.optional(),
         picachu: z.string().optional(),
         cardPrice: z.number().or(z.string()).optional(),

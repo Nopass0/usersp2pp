@@ -23,7 +23,7 @@ import {
   FormMessage,
 } from "~/components/ui/form";
 import { Input } from "~/components/ui/input";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -38,7 +38,10 @@ import type { Card } from "./CardTable";
 const editCardSchema = z.object({
   letterCode: z.string().optional(),
   actor: z.string().optional(),
-  externalId: z.coerce.number().int().positive("ID должен быть положительным числом"),
+  externalId: z.coerce
+    .number()
+    .int()
+    .positive("ID должен быть положительным числом"),
   provider: z.string().min(1, "Поставщик обязателен"),
   cardNumber: z.string().min(1, "Номер карты обязателен"),
   bank: z.string().min(1, "Банк обязателен"),
@@ -85,7 +88,7 @@ export default function CardEditDialog({
       appPin: card.appPin,
       terminalPin: card.terminalPin,
       status: card.status,
-      collectorName: card.collectorName,
+      collectorName: card.collectorName || "",
       picachu: card.picachu,
       cardPrice: card.cardPrice,
       isPaid: card.isPaid,
@@ -139,7 +142,7 @@ export default function CardEditDialog({
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="externalId"
@@ -147,14 +150,18 @@ export default function CardEditDialog({
                   <FormItem>
                     <FormLabel>ID</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Введите ID" {...field} />
+                      <Input
+                        type="number"
+                        placeholder="Введите ID"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -169,7 +176,7 @@ export default function CardEditDialog({
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="cardNumber"
@@ -184,7 +191,7 @@ export default function CardEditDialog({
                 )}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -199,7 +206,7 @@ export default function CardEditDialog({
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="phoneNumber"
@@ -214,7 +221,7 @@ export default function CardEditDialog({
                 )}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -223,13 +230,17 @@ export default function CardEditDialog({
                   <FormItem>
                     <FormLabel>Пин приложения</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Введите пин приложения" {...field} />
+                      <Input
+                        type="number"
+                        placeholder="Введите пин приложения"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="terminalPin"
@@ -244,7 +255,7 @@ export default function CardEditDialog({
                 )}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -271,7 +282,7 @@ export default function CardEditDialog({
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="cardPrice"
@@ -279,18 +290,14 @@ export default function CardEditDialog({
                   <FormItem>
                     <FormLabel>Стоимость карты</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        {...field}
-                      />
+                      <Input type="number" placeholder="0.00" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -305,7 +312,7 @@ export default function CardEditDialog({
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="picachu"
@@ -320,7 +327,7 @@ export default function CardEditDialog({
                 )}
               />
             </div>
-            
+
             <FormField
               control={form.control}
               name="actor"
@@ -334,7 +341,7 @@ export default function CardEditDialog({
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="comment"
@@ -348,12 +355,12 @@ export default function CardEditDialog({
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="isPaid"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
@@ -362,7 +369,7 @@ export default function CardEditDialog({
                   </FormControl>
                   <div className="space-y-1 leading-none">
                     <FormLabel>Карта оплачена</FormLabel>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-muted-foreground text-sm">
                       Отметьте, если карта была оплачена
                     </p>
                   </div>
@@ -374,7 +381,7 @@ export default function CardEditDialog({
               control={form.control}
               name="inWork"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
@@ -383,7 +390,7 @@ export default function CardEditDialog({
                   </FormControl>
                   <div className="space-y-1 leading-none">
                     <FormLabel>В работе</FormLabel>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-muted-foreground text-sm">
                       Отметьте, если карта находится в работе
                     </p>
                   </div>
@@ -392,18 +399,15 @@ export default function CardEditDialog({
             />
 
             <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={updateCardMutation.isLoading}
               >
                 Отмена
               </Button>
-              <Button 
-                type="submit" 
-                disabled={updateCardMutation.isLoading}
-              >
+              <Button type="submit" disabled={updateCardMutation.isLoading}>
                 {updateCardMutation.isLoading && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
