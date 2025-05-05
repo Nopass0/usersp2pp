@@ -141,15 +141,21 @@ export default function CardTable({
   const [activePaymentMethods, setActivePaymentMethods] = useState<
     Record<string, "c2c" | "sbp">
   >({}); // Хранит активный метод оплаты для каждой карты
-  const [noPeriod, setNoPeriod] = useState<boolean>(false);
+  const [noPeriod, setNoPeriod] = useState<boolean>(true);
 
   // Состояния для фильтра по дате
-  const [startDate, setStartDate] = useState<string>(
-    format(subMonths(new Date(), 1), "yyyy-MM-dd"),
-  );
-  const [endDate, setEndDate] = useState<string>(
-    format(new Date(), "yyyy-MM-dd"),
-  );
+  const [startDate, setStartDate] = useState<string>(() => {
+    const pastDate = new Date();
+    pastDate.setFullYear(pastDate.getFullYear() - 50);
+    return format(pastDate, "yyyy-MM-dd");
+  });
+
+  const [endDate, setEndDate] = useState<string>(() => {
+    const futureDate = new Date();
+    futureDate.setFullYear(futureDate.getFullYear() + 50);
+    return format(futureDate, "yyyy-MM-dd");
+  });
+
   const [filteredCards, setFilteredCards] = useState<Card[]>(cards);
 
   // Обновляем фильтрованные карты при изменении основного списка или фильтров
