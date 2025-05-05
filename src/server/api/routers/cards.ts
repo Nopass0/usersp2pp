@@ -282,12 +282,12 @@ export const cardsRouter = createTRPCRouter({
         status: CardStatusEnum.default("ACTIVE"),
         picachu: z.string().optional(),
         initialBalance: z.number().optional(),
-        actor: z.string().optional(),
+        actor: z.string().optional().default("-"),
         // Initial pouring data if provided
         pouringAmount: z.number().optional(),
         initialAmount: z.number().optional(),
         initialDate: z.string().optional(), // Accept string only, we'll parse it manually
-        collectorName: z.string().min(1), // Делаем обязательным
+        collectorName: z.string().optional().default(""), // Делаем обязательным
         cardPrice: z.number().optional(),
         isPaid: z.boolean().optional(),
       }),

@@ -8,20 +8,30 @@ datasource db {
 }
 
 model User {
-  id                  Int                  @id @default(autoincrement())
-  name                String
-  passCode            String               @unique
-  isActive            Boolean              @default(true)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  lastNotification    DateTime?
-  role                UserRole             @default(USER)
-  auditLogs           AuditLog[]
-  bybitTransactions   BybitTransaction[]
-  reportNotifications ReportNotification[]
-  telegramAccounts    TelegramAccount[]
-  transactions        Transaction[]
-  workSessions        WorkSession[]
+  id                          Int                           @id @default(autoincrement())
+  name                        String
+  passCode                    String                        @unique
+  isActive                    Boolean                       @default(true)
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
+  lastNotification            DateTime?
+  role                        UserRole                      @default(USER)
+  bybitApiSecret              String?
+  bybitApiToken               String?
+  lastBybitSyncAt             DateTime?
+  lastBybitSyncStatus         String?
+  auditLogs                   AuditLog[]
+  BybitCabinetChainedWithUser BybitCabinetChainedWithUser[]
+  BybitClipMatch              BybitClipMatch[]
+  bybitTransactions           BybitTransaction[]
+  MatchBybitReport            MatchBybitReport[]
+  MatchViresReport            MatchViresReport[]
+  reportNotifications         ReportNotification[]
+  telegramAccounts            TelegramAccount[]
+  transactions                Transaction[]
+  ViresCabinet                ViresCabinet[]
+  ViresClipMatch              ViresClipMatch[]
+  workSessions                WorkSession[]
 }
 
 model TelegramAccount {
@@ -77,22 +87,25 @@ model Transaction {
 }
 
 model BybitTransaction {
-  id           Int          @id @default(autoincrement())
-  orderNo      String
-  counterparty String?
-  status       String
-  userId       Int
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  amount       Float
-  asset        String
-  dateTime     DateTime
-  originalData Json?
-  totalPrice   Float
-  type         String
-  unitPrice    Float
-  BybitMatch   BybitMatch[]
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               Int          @id @default(autoincrement())
+  orderNo          String       @unique
+  counterparty     String?
+  status           String
+  userId           Int
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  amount           Float
+  asset            String
+  dateTime         DateTime
+  originalData     Json?
+  totalPrice       Float
+  type             String
+  unitPrice        Float
+  processed        Boolean      @default(false)
+  extractedPhones  String[]     @default([])
+  lastAttemptError String?
+  BybitMatch       BybitMatch[]
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([orderNo, userId])
 }
@@ -154,7 +167,7 @@ model IdexCabinet {
 }
 
 model IdexTransaction {
-  id                Int          @id @default(autoincrement())
+  id                Int              @id @default(autoincrement())
   externalId        BigInt
   paymentMethodId   BigInt
   wallet            String
@@ -167,10 +180,11 @@ model IdexTransaction {
   updatedAtExternal String
   extraData         Json
   cabinetId         Int
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  BybitClipMatch    BybitClipMatch[]
   BybitMatch        BybitMatch[]
-  cabinet           IdexCabinet  @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+  cabinet           IdexCabinet      @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
   matches           Match[]
 
   @@unique([externalId, cabinetId])
@@ -333,6 +347,7 @@ model CardPouring {
   pouringAmount    Float
   withdrawalAmount Float?
   withdrawalDate   DateTime?
+  actor            String?
   collectorName    String?
   status           CardStatus @default(ACTIVE)
   comment          String?
@@ -534,13 +549,14 @@ model Table {
 }
 
 model Password {
-  id        Int      @id @default(autoincrement())
+  id        Int           @id @default(autoincrement())
   name      String
   login     String?
   password  String
-  createdAt DateTime @default(now())
+  createdAt DateTime      @default(now())
   updatedAt DateTime
   comment   String?
+  type      PasswordType?
 }
 
 model SalaryEarning {
@@ -552,6 +568,195 @@ model SalaryEarning {
   updatedAt   DateTime
   salaryId    Int
   Salary      Salary   @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+}
+
+model BalanceEntry {
+  id        Int           @id @default(autoincrement())
+  date      DateTime
+  time      String
+  amount    Float
+  currency  String        @default("RUB")
+  comment   String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime
+  section   SalarySection @default(PAYMENTS)
+}
+
+model BybitCabinet {
+  id                          Int                           @id @default(autoincrement())
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime
+  bybitEmail                  String
+  bybitApiSecret              String?
+  bybitApiToken               String?
+  lastBybitSyncAt             DateTime?
+  lastBybitSyncStatus         String?
+  BybitCabinetChainedWithUser BybitCabinetChainedWithUser[]
+  BybitOrderInfo              BybitOrderInfo[]
+  BybitTransactionFromCabinet BybitTransactionFromCabinet[]
+}
+
+model BybitCabinetChainedWithUser {
+  id             Int          @id @default(autoincrement())
+  bybitCabinetId Int
+  userId         Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime
+  BybitCabinet   BybitCabinet @relation(fields: [bybitCabinetId], references: [id], onDelete: Cascade)
+  User           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([bybitCabinetId, userId])
+  @@index([bybitCabinetId])
+  @@index([bybitCabinetId, userId])
+  @@index([userId])
+}
+
+model BybitClipMatch {
+  id                          Int                         @id @default(autoincrement())
+  idexTransactionId           Int
+  bybitTransactionId          Int
+  timeDifference              Int
+  grossExpense                Float
+  grossIncome                 Float
+  grossProfit                 Float
+  profitPercentage            Float
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime
+  matchBybitReportId          Int?
+  userId                      Int
+  BybitTransactionFromCabinet BybitTransactionFromCabinet @relation(fields: [bybitTransactionId], references: [id])
+  IdexTransaction             IdexTransaction             @relation(fields: [idexTransactionId], references: [id])
+  MatchBybitReport            MatchBybitReport?           @relation(fields: [matchBybitReportId], references: [id])
+  User                        User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BybitOrderInfo {
+  id             Int              @id @default(autoincrement())
+  phoneNumbers   String[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  orderNo        String
+  amount         Int
+  bybitCabinetId Int
+  dateTime       DateTime
+  originalData   Json?
+  processed      Boolean          @default(false)
+  status         String
+  totalPrice     Float
+  type           String
+  unitPrice      Float
+  BybitCabinet   BybitCabinet     @relation(fields: [bybitCabinetId], references: [id])
+  ViresClipMatch ViresClipMatch[]
+
+  @@unique([orderNo, bybitCabinetId])
+  @@index([bybitCabinetId])
+}
+
+model BybitTransactionFromCabinet {
+  id               Int              @id @default(autoincrement())
+  orderNo          String           @unique
+  counterparty     String?
+  status           String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime
+  amount           Float
+  asset            String
+  dateTime         DateTime
+  originalData     Json?
+  totalPrice       Float
+  type             String
+  unitPrice        Float
+  processed        Boolean          @default(false)
+  extractedPhones  String[]         @default([])
+  lastAttemptError String?
+  cabinetId        Int
+  BybitClipMatch   BybitClipMatch[]
+  BybitCabinet     BybitCabinet     @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+}
+
+model MatchBybitReport {
+  id             Int              @id @default(autoincrement())
+  reportDate     DateTime
+  totalMatches   Int
+  totalProfit    Float
+  averageProfit  Float
+  successRate    Float
+  timeRangeStart DateTime
+  timeRangeEnd   DateTime
+  notes          String?
+  idexCabinets   Json?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  userId         Int              @default(1)
+  BybitClipMatch BybitClipMatch[]
+  User           User             @relation(fields: [userId], references: [id])
+}
+
+model MatchViresReport {
+  id             Int              @id @default(autoincrement())
+  reportDate     DateTime
+  totalMatches   Int
+  totalProfit    Float
+  averageProfit  Float
+  successRate    Float
+  timeRangeStart DateTime
+  timeRangeEnd   DateTime
+  notes          String?
+  idexCabinets   Json?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  userId         Int              @default(1)
+  User           User             @relation(fields: [userId], references: [id])
+  ViresClipMatch ViresClipMatch[]
+}
+
+model ViresCabinet {
+  id                    Int                     @id @default(autoincrement())
+  name                  String?
+  login                 String
+  password              String
+  type                  PasswordType
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime
+  comment               String?
+  userId                Int
+  lastUpdate            DateTime
+  User                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ViresTransactionPayin ViresTransactionPayin[]
+}
+
+model ViresClipMatch {
+  id                    Int                   @id @default(autoincrement())
+  viresTransactionId    Int
+  timeDifference        Int
+  grossExpense          Float
+  grossIncome           Float
+  grossProfit           Float
+  profitPercentage      Float
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime
+  matchViresReportId    Int?
+  userId                Int
+  bybitTransactionId    Int
+  bybitOrderInfoId      Int
+  BybitOrderInfo        BybitOrderInfo        @relation(fields: [bybitOrderInfoId], references: [id])
+  MatchViresReport      MatchViresReport?     @relation(fields: [matchViresReportId], references: [id])
+  User                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ViresTransactionPayin ViresTransactionPayin @relation(fields: [viresTransactionId], references: [id])
+}
+
+model ViresTransactionPayin {
+  id             Int              @id @default(autoincrement())
+  cabinetId      Int
+  createdAt      DateTime
+  sum_rub        Float
+  sum_usdt       Float
+  card           String
+  fio            String
+  bank           String
+  uuid           String           @unique
+  ViresClipMatch ViresClipMatch[]
+  ViresCabinet   ViresCabinet     @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
 }
 
 enum PeriodType {
@@ -616,4 +821,8 @@ enum FilterOperator {
 enum SalarySection {
   PAYMENTS
   TRACTOR
+}
+
+enum PasswordType {
+  BYBIT
 }

@@ -64,7 +64,6 @@ const createCardSchema = z.object({
     .number()
     .min(0, "Начальная сумма пополнения должна быть положительным числом")
     .optional(),
-  actor: z.string().optional(),
 });
 
 type CreateCardFormValues = z.infer<typeof createCardSchema>;
