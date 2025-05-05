@@ -47,11 +47,11 @@ export function LoginForm() {
       if (user) {
         // Установка данных пользователя в хранилище (это также установит токены в cookies и localStorage)
         login(user);
-        
+
         toast.success("Вход выполнен успешно", {
           description: `Добро пожаловать, ${user.name}!`,
         });
-        
+
         // Даем немного времени для обработки данных перед перенаправлением
         setTimeout(() => {
           router.push("/");
@@ -81,8 +81,8 @@ export function LoginForm() {
     >
       <Card className="border-none bg-white/5 shadow-lg backdrop-blur-sm">
         <CardHeader className="flex items-center justify-center pb-2">
-          <div className="rounded-full bg-primary/10 p-3">
-            <LockIcon className="h-6 w-6 text-primary" />
+          <div className="bg-primary/10 rounded-full p-3">
+            <LockIcon className="text-primary h-6 w-6" />
           </div>
         </CardHeader>
         <CardContent>
@@ -99,18 +99,14 @@ export function LoginForm() {
                         placeholder="Введите код доступа"
                         autoComplete="current-password"
                         {...field}
-                        className="bg-white/10 text-white placeholder:text-gray-400"
+                        className="bg-white/10 placeholder:text-gray-400 dark:text-white"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Вход..." : "Войти"}
               </Button>
             </form>

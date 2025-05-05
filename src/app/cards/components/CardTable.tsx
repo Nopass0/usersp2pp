@@ -15,7 +15,7 @@ import {
   CreditCard,
   Phone,
   Check,
-  ClipboardList
+  ClipboardList,
 } from "lucide-react";
 import { format, subMonths } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -63,12 +63,7 @@ import CardDetailsDialog from "~/app/cards/components/CardDetailsDialog";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
 import { Label } from "~/components/ui/label";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "~/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 
 // Определим типы для карты
 export interface Card {
@@ -88,7 +83,7 @@ export interface Card {
   isPaid: boolean;
   comment?: string;
   createdAt: Date;
-  actor?:   String;
+  actor?: String;
   updatedAt: Date;
   inWork: boolean;
   activePaymentMethod?: string; // Новое поле для хранения активного метода оплаты
@@ -101,7 +96,7 @@ export interface Card {
     cardPouring: number;
     balances: number;
   };
-};
+}
 
 interface CardTableProps {
   cards: Card[];
@@ -143,14 +138,17 @@ export default function CardTable({
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [auditLogDialogOpen, setAuditLogDialogOpen] = useState(false);
-  const [activePaymentMethods, setActivePaymentMethods] = useState<Record<string, "c2c" | "sbp">>({}); // Хранит активный метод оплаты для каждой карты
+  const [activePaymentMethods, setActivePaymentMethods] = useState<
+    Record<string, "c2c" | "sbp">
+  >({}); // Хранит активный метод оплаты для каждой карты
+  const [noPeriod, setNoPeriod] = useState<boolean>(false);
 
   // Состояния для фильтра по дате
   const [startDate, setStartDate] = useState<string>(
-    format(subMonths(new Date(), 1), "yyyy-MM-dd")
+    format(subMonths(new Date(), 1), "yyyy-MM-dd"),
   );
   const [endDate, setEndDate] = useState<string>(
-    format(new Date(), "yyyy-MM-dd")
+    format(new Date(), "yyyy-MM-dd"),
   );
   const [filteredCards, setFilteredCards] = useState<Card[]>(cards);
 
@@ -211,7 +209,7 @@ export default function CardTable({
 
         // Суммируем текущие балансы (на конец пролива)
         acc.totalLastBalance += card.lastBalance || 0;
-        
+
         // Суммируем начальные балансы (на начало пролива)
         acc.totalInitialBalance += card.initialBalance || 0;
 
@@ -224,7 +222,7 @@ export default function CardTable({
         totalWithdrawal: 0,
         totalLastBalance: 0,
         totalInitialBalance: 0,
-      }
+      },
     );
   }, [filteredCards]);
 
@@ -266,41 +264,65 @@ export default function CardTable({
   };
 
   // Мутация для обновления активного метода оплаты
-  const updatePaymentMethodMutation = api.cards.updatePaymentMethod.useMutation({
-    onSuccess: () => {
-      // Можно добавить уведомление об успешном обновлении при необходимости
+  const updatePaymentMethodMutation = api.cards.updatePaymentMethod.useMutation(
+    {
+      onSuccess: () => {
+        // Можно добавить уведомление об успешном обновлении при необходимости
+      },
+      onError: (error) => {
+        console.error("Ошибка при обновлении метода оплаты:", error);
+      },
     },
-    onError: (error) => {
-      console.error("Ошибка при обновлении метода оплаты:", error);
+  );
+
+  const toggleNoPeriod = () => {
+    if (!noPeriod) {
+      // Calculate dates ±50 years from now
+      const pastDate = new Date();
+      pastDate.setFullYear(pastDate.getFullYear() - 50);
+
+      const futureDate = new Date();
+      futureDate.setFullYear(futureDate.getFullYear() + 50);
+
+      // Format dates to string format used by inputs
+      setStartDate(format(pastDate, "yyyy-MM-dd"));
+      setEndDate(format(futureDate, "yyyy-MM-dd"));
+      setNoPeriod(true);
+    } else {
+      // Reset to default date range (1 month)
+      setStartDate(format(subMonths(new Date(), 1), "yyyy-MM-dd"));
+      setEndDate(format(new Date(), "yyyy-MM-dd"));
+      setNoPeriod(false);
     }
-  });
+  };
 
   // Функция для переключения активного метода оплаты
   const togglePaymentMethod = async (cardId: string, method: "c2c" | "sbp") => {
     // Обновляем локальное состояние для мгновенной обратной связи
-    setActivePaymentMethods(prev => ({
+    setActivePaymentMethods((prev) => ({
       ...prev,
-      [cardId]: method
+      [cardId]: method,
     }));
-    
+
     try {
       // Сохраняем выбор в базе данных
-      await updatePaymentMethodMutation.mutateAsync({ 
-        id: parseInt(cardId), 
-        paymentMethod: method 
+      await updatePaymentMethodMutation.mutateAsync({
+        id: parseInt(cardId),
+        paymentMethod: method,
       });
     } catch (error) {
       console.error("Ошибка при обновлении метода оплаты:", error);
     }
   };
-  
+
   // Заполняем активные методы оплаты из полученных данных
   useEffect(() => {
     // При загрузке компонента загружаем активные методы оплаты для всех карт
     if (cards.length > 0) {
       const initialMethods: Record<string, "c2c" | "sbp"> = {};
-      cards.forEach(card => {
-        initialMethods[card.id] = (card.activePaymentMethod as "c2c" | "sbp") || "c2c";
+      cards.forEach((card) => {
+        initialMethods[card.id] =
+          (card.activePaymentMethod as "c2c" | "sbp") || "c2c";
       });
       setActivePaymentMethods(initialMethods);
     }
@@ -317,13 +339,19 @@ export default function CardTable({
     if (sortBy !== column) return <ArrowUpDown className="ml-2 h-4 w-4" />;
 
     return sortDirection === "asc" ? (
-      <ArrowUpDown className="ml-2 h-4 w-4 text-primary rotate-180" />
+      <ArrowUpDown className="text-primary ml-2 h-4 w-4 rotate-180" />
     ) : (
-      <ArrowUpDown className="ml-2 h-4 w-4 text-primary" />
+      <ArrowUpDown className="text-primary ml-2 h-4 w-4" />
     );
   };
 
-  const SortableHeader = ({ column, label }: { column: string; label: string }) => (
+  const SortableHeader = ({
+    column,
+    label,
+  }: {
+    column: string;
+    label: string;
+  }) => (
     <Button
       variant="ghost"
       onClick={() => onSort(column)}
@@ -339,8 +367,8 @@ export default function CardTable({
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
       </div>
     );
   }
@@ -348,55 +376,76 @@ export default function CardTable({
   if (!cards.length) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
-        <p className="text-lg font-medium mb-2">Нет данных для отображения</p>
-        <p className="text-sm text-muted-foreground">
+        <p className="mb-2 text-lg font-medium">Нет данных для отображения</p>
+        <p className="text-muted-foreground text-sm">
           Попробуйте изменить фильтры или создать новую карту
         </p>
       </div>
     );
   }
 
+  useEffect(() => {
+    console.log("filtredCards", filteredCards.length);
+  }, filteredCards);
+
   return (
     <>
       {/* Фильтры по дате */}
-      <div className="mb-4 flex items-center gap-4 flex-wrap">
+      <div className="mb-4 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="text-sm">Период с:</span>
-          <Input 
-            type="date" 
-            className="w-40"
-            value={startDate} 
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-          <span className="text-sm">по:</span>
-          <Input 
-            type="date" 
-            className="w-40"
-            value={endDate} 
-            onChange={(e) => setEndDate(e.target.value)}
-          />
+          <Button
+            variant={noPeriod ? "default" : "outline"}
+            size="sm"
+            onClick={toggleNoPeriod}
+            className="flex items-center gap-1"
+          >
+            {noPeriod ? "Вернуть период" : "Без периода"}
+          </Button>
+
+          {!noPeriod && (
+            <>
+              <span className="text-sm">Период с:</span>
+              <Input
+                type="date"
+                className="w-40"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+              <span className="text-sm">по:</span>
+              <Input
+                type="date"
+                className="w-40"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </>
+          )}
         </div>
-        <div className="ml-auto text-sm text-muted-foreground">
-          <span className="font-semibold">Найдено карт:</span> {filteredCards.length} | 
-          <span className="font-semibold ml-2">Общая стоимость:</span> {formatAmount(summaryStats.totalCardPrice)}
+        <div className="text-muted-foreground ml-auto text-sm">
+          <span className="font-semibold">Найдено карт:</span>{" "}
+          {filteredCards.length} |
+          <span className="ml-2 font-semibold">Общая стоимость:</span>{" "}
+          {formatAmount(summaryStats.totalCardPrice)}
         </div>
       </div>
 
       {/* Информация по выбору типа оплаты */}
-      <div className="flex items-center space-x-2 mb-4">
-        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-          <CreditCard className="h-4 w-4 text-green-600 mr-1" />
+      <div className="mb-4 flex items-center space-x-2">
+        <div className="text-muted-foreground flex items-center space-x-2 text-sm">
+          <CreditCard className="mr-1 h-4 w-4 text-green-600" />
           <span>C2C - активно (зеленый)</span>
           <span className="mx-2">|</span>
-          <Phone className="h-4 w-4 text-red-600 mr-1" />
+          <Phone className="mr-1 h-4 w-4 text-red-600" />
           <span>СБП - неактивно (красный)</span>
           <span className="mx-2">|</span>
-          <span>Нажмите на номер, чтобы сделать его активным методом оплаты</span>
+          <span>
+            Нажмите на номер, чтобы сделать его активным методом оплаты
+          </span>
         </div>
       </div>
 
       {/* Кнопка просмотра всей истории изменений */}
-      <div className="flex justify-end mb-4">
+      <div className="mb-4 flex justify-end">
         <Button
           variant="outline"
           size="sm"
@@ -409,7 +458,7 @@ export default function CardTable({
       </div>
 
       {/* Таблица карт */}
-      <div className="rounded-md border overflow-hidden">
+      <div className="overflow-hidden rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -438,9 +487,12 @@ export default function CardTable({
                 <SortableHeader column="inWork" label="В работе" />
               </TableHead>
               <TableHead className="text-right">
-                <SortableHeader column="initialBalance" label="Баланс на начало" />
+                <SortableHeader
+                  column="initialBalance"
+                  label="Баланс на начало"
+                />
                 {filteredCards.length > 0 && (
-                  <div className="text-xs font-normal text-muted-foreground">
+                  <div className="text-muted-foreground text-xs font-normal">
                     Всего: {formatAmount(summaryStats.totalInitialBalance)}
                   </div>
                 )}
@@ -448,7 +500,7 @@ export default function CardTable({
               <TableHead className="text-right">
                 <SortableHeader column="lastBalance" label="Баланс на конец" />
                 {filteredCards.length > 0 && (
-                  <div className="text-xs font-normal text-muted-foreground">
+                  <div className="text-muted-foreground text-xs font-normal">
                     Всего: {formatAmount(summaryStats.totalLastBalance)}
                   </div>
                 )}
@@ -456,7 +508,7 @@ export default function CardTable({
               <TableHead className="text-right">
                 <SortableHeader column="totalPoured" label="Пролито" />
                 {filteredCards.length > 0 && (
-                  <div className="text-xs font-normal text-muted-foreground">
+                  <div className="text-muted-foreground text-xs font-normal">
                     Всего: {formatAmount(summaryStats.totalPoured)}
                   </div>
                 )}
@@ -464,7 +516,7 @@ export default function CardTable({
               <TableHead className="text-right">
                 <SortableHeader column="withdrawal" label="Сумма выплат" />
                 {filteredCards.length > 0 && (
-                  <div className="text-xs font-normal text-muted-foreground">
+                  <div className="text-muted-foreground text-xs font-normal">
                     Всего: {formatAmount(summaryStats.totalWithdrawal)}
                   </div>
                 )}
@@ -479,26 +531,30 @@ export default function CardTable({
                 <TableCell>{card.letterCode || "-"}</TableCell>
                 <TableCell>{card.bank}</TableCell>
                 <TableCell>
-                  <button 
+                  <button
                     className={`flex items-center ${activePaymentMethods[card.id] === "c2c" ? "text-green-600" : "text-red-600"} hover:underline`}
                     onClick={() => togglePaymentMethod(card.id, "c2c")}
                   >
-                    {activePaymentMethods[card.id] === "c2c" && <Check className="h-3 w-3 mr-1" />}
+                    {activePaymentMethods[card.id] === "c2c" && (
+                      <Check className="mr-1 h-3 w-3" />
+                    )}
                     {card.cardNumber}
                   </button>
                 </TableCell>
                 <TableCell>
-                  <button 
+                  <button
                     className={`flex items-center ${activePaymentMethods[card.id] === "sbp" ? "text-green-600" : "text-red-600"} hover:underline`}
                     onClick={() => togglePaymentMethod(card.id, "sbp")}
                   >
-                    {activePaymentMethods[card.id] === "sbp" && <Check className="h-3 w-3 mr-1" />}
+                    {activePaymentMethods[card.id] === "sbp" && (
+                      <Check className="mr-1 h-3 w-3" />
+                    )}
                     {card.phoneNumber}
                   </button>
                 </TableCell>
                 <TableCell>
                   {card.inWork ? (
-                    <span className="text-green-600 font-medium">Да</span>
+                    <span className="font-medium text-green-600">Да</span>
                   ) : (
                     <span className="text-muted-foreground">Нет</span>
                   )}
@@ -515,7 +571,7 @@ export default function CardTable({
                       className="ml-1 h-6 w-auto px-2 py-0 text-xs"
                       onClick={() => setCardForBalances(card)}
                     >
-                      <WalletCards className="h-3 w-3 mr-1" />
+                      <WalletCards className="mr-1 h-3 w-3" />
                       <span>История ({card._count.balances})</span>
                     </Button>
                   )}
@@ -529,7 +585,7 @@ export default function CardTable({
                       className="ml-1 h-6 w-auto px-2 py-0 text-xs"
                       onClick={() => setCardForPourings(card)}
                     >
-                      <DollarSign className="h-3 w-3 mr-1" />
+                      <DollarSign className="mr-1 h-3 w-3" />
                       <span>История ({card._count.cardPouring})</span>
                     </Button>
                   )}
@@ -556,7 +612,7 @@ export default function CardTable({
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                    
+
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -577,36 +633,39 @@ export default function CardTable({
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => setCardForPourings(card)}>
+                        <DropdownMenuItem
+                          onClick={() => setCardForPourings(card)}
+                        >
                           <WalletCards className="mr-2 h-4 w-4" />
                           <span>История проливов</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setCardForBalances(card)}>
+                        <DropdownMenuItem
+                          onClick={() => setCardForBalances(card)}
+                        >
                           <DollarSign className="mr-2 h-4 w-4" />
                           <span>Балансы карты</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          setSelectedCard(card);
-                          setAuditLogDialogOpen(true);
-                        }}>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedCard(card);
+                            setAuditLogDialogOpen(true);
+                          }}
+                        >
                           <ClipboardList className="mr-2 h-4 w-4" />
                           <span>История изменений</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => {
-                          setSelectedCard(card);
-                          setDeleteDialogOpen(true);
-                        }}
-                        className="text-destructive"
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedCard(card);
+                            setDeleteDialogOpen(true);
+                          }}
+                          className="text-destructive"
                         >
                           <Trash className="mr-2 h-4 w-4" />
                           <span className="text-destructive">Удалить</span>
@@ -622,7 +681,7 @@ export default function CardTable({
       </div>
 
       {/* Пагинация */}
-      <div className="flex justify-between items-center py-4">
+      <div className="flex items-center justify-between py-4">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -650,14 +709,24 @@ export default function CardTable({
           <span className="text-sm font-medium">Количество записей:</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-6 w-auto px-2 py-0 text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-auto px-2 py-0 text-xs"
+              >
                 {pageSize}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => onPageSizeChange(10)}>10</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onPageSizeChange(20)}>20</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onPageSizeChange(50)}>50</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onPageSizeChange(10)}>
+                10
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onPageSizeChange(20)}>
+                20
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onPageSizeChange(50)}>
+                50
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
