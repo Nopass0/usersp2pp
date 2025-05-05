@@ -24,7 +24,7 @@ import {
   FormMessage,
 } from "~/components/ui/form";
 import { Input } from "~/components/ui/input";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -45,14 +45,17 @@ const createCardSchema = z.object({
   appPin: z.coerce.number().int().nullable(),
   terminalPin: z.string().min(1, "Пин терминала обязателен"),
   status: z.enum(["ACTIVE", "WARNING", "BLOCKED"]),
-  collectorName: z.string().min(1, "Имя инкассатора обязательно"),
+  collectorName: z.string().optional().default("-"),
   picachu: z.string().min(1, "Пикачу обязателен"),
   cardPrice: z.coerce
     .number()
     .min(0, "Стоимость должна быть положительным числом"),
   isPaid: z.boolean().default(false),
   comment: z.string().optional(),
-  externalId: z.coerce.number().int().positive("ID должен быть положительным числом"),
+  externalId: z.coerce
+    .number()
+    .int()
+    .positive("ID должен быть положительным числом"),
   initialBalance: z.coerce
     .number()
     .min(0, "Начальный баланс должен быть положительным числом")
@@ -71,7 +74,10 @@ interface CardCreateDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialogProps) {
+export default function CardCreateDialog({
+  open,
+  onOpenChange,
+}: CardCreateDialogProps) {
   const [activeTab, setActiveTab] = useState("details");
 
   // Используем хук формы с валидацией Zod
@@ -108,7 +114,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
       // Обновляем кэш после успешного создания
       void utils.cards.getAll.invalidate();
       void utils.cards.getStats.invalidate();
-      
+
       // Закрываем диалог и сбрасываем форму
       onOpenChange(false);
       form.reset();
@@ -132,7 +138,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Создать новую карту</DialogTitle>
           <DialogDescription>
@@ -151,7 +157,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                 <TabsTrigger value="details">Основные данные</TabsTrigger>
                 <TabsTrigger value="additional">Дополнительно</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="details" className="space-y-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -167,7 +173,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="externalId"
@@ -175,14 +181,18 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       <FormItem>
                         <FormLabel>Внешний ID</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="ID карты" {...field} />
+                          <Input
+                            type="number"
+                            placeholder="ID карты"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -197,7 +207,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="provider"
@@ -212,7 +222,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                     )}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -227,7 +237,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="phoneNumber"
@@ -235,14 +245,17 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       <FormItem>
                         <FormLabel>Номер телефона</FormLabel>
                         <FormControl>
-                          <Input placeholder="Введите номер телефона" {...field} />
+                          <Input
+                            placeholder="Введите номер телефона"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -251,13 +264,16 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       <FormItem>
                         <FormLabel>Пин терминала</FormLabel>
                         <FormControl>
-                          <Input placeholder="Введите пин терминала" {...field} />
+                          <Input
+                            placeholder="Введите пин терминала"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="appPin"
@@ -265,14 +281,18 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       <FormItem>
                         <FormLabel>Пин приложения</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="Введите пин (4 цифры)" {...field} />
+                          <Input
+                            type="number"
+                            placeholder="Введите пин (4 цифры)"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -301,7 +321,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                   />
                 </div>
               </TabsContent>
-              
+
               <TabsContent value="additional" className="space-y-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
                   {/* <FormField
@@ -317,7 +337,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   /> */}
-                  
+
                   <FormField
                     control={form.control}
                     name="picachu"
@@ -332,7 +352,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                     )}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -341,18 +361,22 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       <FormItem>
                         <FormLabel>Стоимость карты</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="Введите стоимость" {...field} />
+                          <Input
+                            type="number"
+                            placeholder="Введите стоимость"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="isPaid"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
                         <FormControl>
                           <Checkbox
                             checked={field.value}
@@ -360,9 +384,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
-                          <FormLabel>
-                            Оплачена
-                          </FormLabel>
+                          <FormLabel>Оплачена</FormLabel>
                           <FormDescription>
                             Отметьте, если карта уже оплачена
                           </FormDescription>
@@ -371,7 +393,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                     )}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -398,7 +420,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="initialPouringAmount"
@@ -425,7 +447,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                     )}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-1 gap-4">
                   <FormField
                     control={form.control}
@@ -440,7 +462,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="comment"
@@ -457,7 +479,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
                 </div>
               </TabsContent>
             </Tabs>
-            
+
             <DialogFooter>
               <Button
                 type="button"
@@ -466,10 +488,7 @@ export default function CardCreateDialog({ open, onOpenChange }: CardCreateDialo
               >
                 Отмена
               </Button>
-              <Button 
-                type="submit"
-                disabled={createCardMutation.isLoading}
-              >
+              <Button type="submit" disabled={createCardMutation.isLoading}>
                 {createCardMutation.isLoading && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
