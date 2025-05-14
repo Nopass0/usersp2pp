@@ -16,19 +16,11 @@ const config = {
                 source: '/(.*)',
                 headers: [
                     {
+                        // Allow absolutely everything for Content Security Policy
                         key: 'Content-Security-Policy',
-                        value: "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';"
+                        value: "default-src * http: https: ws: wss: data: blob: 'unsafe-inline' 'unsafe-eval'; script-src * http: https: 'unsafe-inline' 'unsafe-eval'; connect-src * http: https: ws: wss: 'unsafe-inline'; img-src * http: https: data: blob: 'unsafe-inline'; frame-src * http: https:; style-src * http: https: 'unsafe-inline';"
                     }
                 ]
-            }
-        ];
-    },
-    // Allow cross-origin requests via proxy
-    async rewrites() {
-        return [
-            {
-                source: '/api/proxy/:path*',
-                destination: 'http://192.168.1.106:8000/:path*'
             }
         ];
     }

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { corslessFetch } from "~/lib/utils";
 
 // Define types for Cabinet Message from API
 export interface CabinetMessage {
@@ -198,53 +199,57 @@ export async function fetchAndProcessMessages() {
   
   try {
     // Determine time period for recent messages (use last 3 hours if no lastChecked)
-    const hours = lastChecked ? 
-      Math.max(1, Math.ceil((Date.now() - lastChecked) / (60 * 60 * 1000))) : 
+    const hours = lastChecked ?
+      Math.max(1, Math.ceil((Date.now() - lastChecked) / (60 * 60 * 1000))) :
       3;
-    
-    // Add a timeout to the fetch request
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    
-    try {
-      // Use the proxy URL for HTTP requests
-      const useProxy = apiUrl.startsWith('http://');
-      const url = useProxy
-        ? `/api/proxy/messages/recent?hours=${hours}`
-        : `${apiUrl}/messages/recent?hours=${hours}`;
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "accept": "application/json",
-          "X-API-Key": apiKey
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch messages: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
-        addNotifications(data.messages);
-        
-        // Save to database via API endpoint
-        await saveMessagesToDatabase(data.messages);
-      }
-      
-      // Clear any previous errors on successful fetch
-      setError(null);
-    } catch (fetchError) {
-      if (fetchError.name === 'AbortError') {
-        throw new Error('API request timed out');
-      }
-      throw fetchError;
+    // Use a direct HTTP call to the specified IP address
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    // Always ensure we're using HTTP protocol (not HTTPS)
+    let directUrl = apiUrl;
+
+    // Force HTTP protocol
+    if (directUrl.startsWith('https://')) {
+      directUrl = directUrl.replace('https://', 'http://');
+    } else if (!directUrl.startsWith('http://')) {
+      directUrl = `http://${directUrl}`;
     }
+
+    // Hard-code the correct IP address
+    directUrl = 'http://95.163.152.102:8000';
+
+    console.log("Fetching from:", directUrl);
+
+    const response = await fetch(`${directUrl}/messages/recent?hours=${hours}`, {
+      method: "GET",
+      headers: {
+        "accept": "application/json",
+        "X-API-Key": apiKey
+      },
+      signal: controller.signal,
+      // Note: no-cors mode will not allow reading the response content in JavaScript
+      // so we use regular mode and let the browser handle it
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch messages: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
+      addNotifications(data.messages);
+
+      // Save to database via API endpoint
+      await saveMessagesToDatabase(data.messages);
+    }
+
+    // Clear any previous errors on successful fetch
+    setError(null);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error fetching messages";
     console.error("Error fetching messages:", errorMsg);
