@@ -22,7 +22,7 @@ export function EmergencyNotification() {
   const router = useRouter();
   const [showAlert, setShowAlert] = useState(false);
   const [notification, setNotification] = useState<{
-    id: number;
+    id: number | bigint;
     message: string;
     cabinet_name: string;
     cabinet_id: string;
@@ -43,9 +43,31 @@ export function EmergencyNotification() {
   // Handle close and mark as read
   const handleClose = () => {
     if (notification) {
-      markAsRead.mutate({ id: notification.id });
+      try {
+        // Convert to BigInt to handle large IDs
+        markAsRead.mutate({ id: BigInt(notification.id) });
+      } catch (error) {
+        console.error("Error marking notification as read:", error);
+        // Even if marking as read fails, still hide the notification
+      }
     }
+
+    // Always hide the banner
     setShowAlert(false);
+
+    // Store in localStorage that this notification has been seen
+    if (notification) {
+      try {
+        // Get existing dismissed notifications
+        const dismissed = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+        // Add current notification ID
+        dismissed.push(notification.id.toString());
+        // Store back to localStorage
+        localStorage.setItem('dismissedNotifications', JSON.stringify(dismissed));
+      } catch (e) {
+        console.error("Error storing dismissed notification:", e);
+      }
+    }
   };
   
   // Set up listener for new notifications - this is triggered automatically when a new notification arrives
@@ -58,10 +80,31 @@ export function EmergencyNotification() {
   const fetchLatestNotification = () => {
     // Use the data from the hook
     if (notifications && notifications.length > 0) {
-      // Get the latest notification
-      const latest = notifications[0];
-      setNotification(latest);
-      setShowAlert(true);
+      try {
+        // Get dismissed notifications from localStorage
+        const dismissed = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+
+        // Find the first notification that hasn't been dismissed
+        for (const notif of notifications) {
+          // Check if this notification has been dismissed
+          if (!dismissed.includes(notif.id.toString())) {
+            // This is a new notification that hasn't been dismissed
+            setNotification(notif);
+            setShowAlert(true);
+            return;
+          }
+        }
+
+        // If we got here, all notifications have been dismissed
+        setShowAlert(false);
+      } catch (e) {
+        console.error("Error checking dismissed notifications:", e);
+
+        // Fallback to original behavior
+        const latest = notifications[0];
+        setNotification(latest);
+        setShowAlert(true);
+      }
     }
   };
 

@@ -63,10 +63,19 @@ export function TelegramChatsDialog({
   const apiKey = process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || "";
   const apiUrl = process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "";
 
+  // Check if we're running in a secure context (HTTPS)
+  const isSecureContext = typeof window !== 'undefined' && window.location.protocol === 'https:';
+
   // Fetch available chats
   useEffect(() => {
     if (open) {
-      fetchChats();
+      // If we're running in HTTPS mode, always use the proxy to avoid mixed content issues
+      if (isSecureContext && apiUrl && apiUrl.startsWith('http://')) {
+        console.log("Secure context detected - using proxy to avoid mixed content issues");
+        fetchChatsViaProxy();
+      } else {
+        fetchChats();
+      }
       setResponseData(null);
       setMessage("");
     }
@@ -185,6 +194,48 @@ export function TelegramChatsDialog({
     }
   };
 
+  // Function to fetch chats via proxy (for HTTPS contexts)
+  const fetchChatsViaProxy = async () => {
+    try {
+      setLoading(true);
+
+      console.log("Fetching chats via proxy");
+      const response = await fetch(`/api/proxy/chats`, {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+          "X-API-Key": apiKey,
+        },
+        // Manual timeout using AbortController for broader browser support
+        signal: (() => {
+          const controller = new AbortController();
+          setTimeout(() => controller.abort(), 15000); // 15 second timeout
+          return controller.signal;
+        })(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error fetching chats via proxy: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setChats(data.chats || []);
+
+      // Auto-select the first chat if available
+      if (data.chats && data.chats.length > 0) {
+        setSelectedChatId(data.chats[0].id.toString());
+      }
+    } catch (error) {
+      console.error("Failed to fetch chats via proxy:", error);
+      toast.error("Ошибка при загрузке чатов", {
+        description:
+          error instanceof Error ? error.message : "Неизвестная ошибка",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!selectedChatId || !message.trim()) {
       toast.error("Ошибка", {
@@ -192,6 +243,9 @@ export function TelegramChatsDialog({
       });
       return;
     }
+
+    // If in secure context and API URL is HTTP, prefer proxy to avoid mixed content
+    const useProxy = isSecureContext && apiUrl && apiUrl.startsWith('http://');
 
     if (!apiUrl) {
       toast.error("Ошибка конфигурации", {
@@ -204,7 +258,54 @@ export function TelegramChatsDialog({
       setSendingMessage(true);
       setResponseData(null);
 
-      // Make a direct HTTP request to the API, adhering to the documentation
+      // If in a secure context (HTTPS) and using HTTP API, use the proxy
+      if (useProxy) {
+        console.log("Using proxy for secure context");
+        const response = await fetch(`/api/proxy/send`, {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "Content-Type": "application/json",
+            "X-API-Key": apiKey,
+          },
+          body: JSON.stringify({
+            chat_id: parseInt(selectedChatId),
+            text: message,
+          }),
+          // Manual timeout using AbortController
+          signal: (() => {
+            const controller = new AbortController();
+            setTimeout(() => controller.abort(), 15000);
+            return controller.signal;
+          })(),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error sending message via proxy: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setResponseData(data);
+
+        if (data.success) {
+          toast.success("Запрос обработан через прокси", {
+            description:
+              data.auto_withdraw !== undefined
+                ? `Автовывод: ${data.auto_withdraw ? "ДА" : "НЕТ"}`
+                : "Операция успешно выполнена",
+          });
+          setMessage("");
+        } else {
+          toast.error("Ошибка", {
+            description: data.message || "Ошибка при обработке запроса",
+          });
+        }
+
+        // Early return as we're done
+        return;
+      }
+
+      // Make a direct HTTP request to the API when not in secure context
       // Create the full URL ensuring it's valid
       let targetUrl = apiUrl;
       if (!targetUrl.endsWith('/')) targetUrl += '/';
