@@ -24,6 +24,7 @@ model User {
   BybitCabinetChainedWithUser BybitCabinetChainedWithUser[]
   BybitClipMatch              BybitClipMatch[]
   bybitTransactions           BybitTransaction[]
+  cabinetNotifications        CabinetNotification[]
   MatchBybitReport            MatchBybitReport[]
   MatchViresReport            MatchViresReport[]
   reportNotifications         ReportNotification[]
@@ -161,6 +162,7 @@ model IdexCabinet {
   idexId        Int
   login         String
   password      String
+  notifications CabinetNotification[]
   IdexSyncOrder IdexSyncOrder[]
   transactions  IdexTransaction[]
   workSessions  WorkSessionIdexCabinet[]
@@ -347,12 +349,12 @@ model CardPouring {
   pouringAmount    Float
   withdrawalAmount Float?
   withdrawalDate   DateTime?
-  actor            String?
   collectorName    String?
   status           CardStatus @default(ACTIVE)
   comment          String?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
+  actor            String?
   auditLogs        AuditLog[] @relation("CardPouringAuditLogs")
   card             Card       @relation(fields: [cardId], references: [id], onDelete: Cascade)
 }
@@ -757,6 +759,31 @@ model ViresTransactionPayin {
   uuid           String           @unique
   ViresClipMatch ViresClipMatch[]
   ViresCabinet   ViresCabinet     @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+}
+
+model CabinetNotification {
+  id             Int          @id @default(autoincrement())
+  chat_id        Int
+  chat_name      String
+  cabinet_name   String
+  cabinet_id     String
+  message        String
+  timestamp      DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  isRead         Boolean      @default(false)
+  cabinetId      Int?
+  userId         Int?
+  message_id_str String
+  cabinet        IdexCabinet? @relation(fields: [cabinetId], references: [id])
+  user           User?        @relation(fields: [userId], references: [id])
+
+  @@unique([chat_id, message_id_str])
+  @@index([cabinet_id])
+  @@index([cabinetId])
+  @@index([userId])
+  @@index([isRead])
+  @@index([timestamp])
+  @@index([message_id_str])
 }
 
 enum PeriodType {

@@ -41,6 +41,7 @@ import {
 import { WorkSessionList } from "~/components/dashboard/work-session-list";
 import { StartSessionDialog } from "~/components/dashboard/start-session-dialog";
 import { TransactionsDialog } from "~/components/dashboard/transactions-dialog";
+import { TelegramChatsDialog } from "~/components/dashboard/telegram-chats-dialog";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -48,6 +49,7 @@ export default function DashboardPage() {
   const { theme, setTheme } = useTheme();
   const [startSessionOpen, setStartSessionOpen] = useState(false);
   const [transactionsOpen, setTransactionsOpen] = useState(false);
+  const [telegramChatsOpen, setTelegramChatsOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<"telegram" | "bybit">("telegram");
   const [activeTime, setActiveTime] = useState<string | null>(null);
   
@@ -244,7 +246,7 @@ export default function DashboardPage() {
             variants={staggerContainer}
             initial="hidden"
             animate="visible"
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2"
           >
             <motion.div variants={fadeIn} transition={{ duration: 0.3 }} className="sm:col-span-2 lg:col-span-1">
               <Card className="overflow-hidden shadow-md transition-all hover:shadow-lg">
@@ -265,7 +267,7 @@ export default function DashboardPage() {
                       Время работы: {activeTime || "загрузка..."}
                     </p>
                   )}
-                  
+
                   <div className="mt-6">
                     {activeSessionQuery.data && !activeSessionQuery.data.endTime ? (
                       <Button
@@ -295,72 +297,41 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </motion.div>
-            
-            <motion.div variants={fadeIn} transition={{ duration: 0.3, delay: 0.1 }}>
+
+            <motion.div variants={fadeIn} transition={{ duration: 0.3, delay: 0.05 }}>
               <Card className="h-full overflow-hidden shadow-md transition-all hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between pb-2 bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent">
+                <CardHeader className="flex flex-row items-center justify-between pb-2 bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-transparent">
                   <CardTitle className="text-sm font-medium">
-                    Транзакции Telegram
+                    ВЫВОД СРЕДСТВ
                   </CardTitle>
                   <MessageSquareIcon className="h-4 w-4" />
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <div className="text-3xl font-bold">
-                    {telegramTransactionsQuery.data !== undefined
-                      ? telegramTransactionsQuery.data.toLocaleString()
-                      : "—"}
+                  <div className="text-2xl font-bold">
+                    Отправка запросов
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Общее количество транзакций
+                    Выберите кабинет
                   </p>
-                  
+
                   <div className="mt-6">
                     <Button
-                      variant="outline"
+                      variant="default"
                       size="sm"
-                      className="w-full transition-all hover:bg-primary/10"
-                      onClick={() => handleOpenTransactions("telegram")}
+                      className="w-full bg-gradient-to-r from-purple-500 to-purple-500/90 transition-all hover:brightness-110"
+                      onClick={() => setTelegramChatsOpen(true)}
                     >
-                      <BarChart3Icon className="mr-2 h-4 w-4" />
-                      Просмотреть детали
+                      <MessageSquareIcon className="mr-2 h-4 w-4" />
+                      ВЫВОД
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
+
+{/* Telegram transactions card hidden as requested */}
             
-            <motion.div variants={fadeIn} transition={{ duration: 0.3, delay: 0.2 }}>
-              <Card className="h-full overflow-hidden shadow-md transition-all hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between pb-2 bg-gradient-to-r from-green-500/10 via-green-500/5 to-transparent">
-                  <CardTitle className="text-sm font-medium">
-                    Транзакции Bybit
-                  </CardTitle>
-                  <TrendingUpIcon className="h-4 w-4" />
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="text-3xl font-bold">
-                    {bybitTransactionsQuery.data !== undefined
-                      ? bybitTransactionsQuery.data.toLocaleString()
-                      : "—"}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Общее количество транзакций
-                  </p>
-                  
-                  <div className="mt-6">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full transition-all hover:bg-primary/10"
-                      onClick={() => handleOpenTransactions("bybit")}
-                    >
-                      <BarChart3Icon className="mr-2 h-4 w-4" />
-                      Просмотреть детали
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+{/* Bybit transactions card hidden as requested */}
           </motion.div>
           
           <Separator className="my-8" />
@@ -400,10 +371,15 @@ export default function DashboardPage() {
         }}
       />
       
-      <TransactionsDialog 
+      <TransactionsDialog
         open={transactionsOpen}
         onOpenChange={setTransactionsOpen}
         initialTransactionType={transactionType}
+      />
+
+      <TelegramChatsDialog
+        open={telegramChatsOpen}
+        onOpenChange={setTelegramChatsOpen}
       />
     </div>
   );

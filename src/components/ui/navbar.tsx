@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { useAuthStore } from "~/store/auth-store";
+import NotificationBell from "~/components/ui/notification-bell";
 
 export function Navbar() {
   const { theme, setTheme } = useTheme();
@@ -31,6 +32,8 @@ export function Navbar() {
           <span className="text-lg font-semibold">P2PP Система</span>
         </div>
         <div className="flex items-center gap-2">
+          <NotificationBell />
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
@@ -54,10 +57,10 @@ export function Navbar() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
-          <Button 
-            variant="outline" 
-            size="icon" 
+
+          <Button
+            variant="outline"
+            size="icon"
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />

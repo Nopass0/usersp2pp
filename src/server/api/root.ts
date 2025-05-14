@@ -7,6 +7,7 @@ import { cardsRouter } from "./routers/cards";
 import { cardPouringsRouter } from "./routers/cardPourings";
 import { cardBalancesRouter } from "./routers/cardBalances";
 import { auditLogRouter } from "./routers/auditLog";
+import { notificationRouter } from "./routers/notification";
 
 /**
  * This is the primary router for your server.
@@ -21,7 +22,8 @@ export const appRouter = createTRPCRouter({
   cards: cardsRouter,
   cardPourings: cardPouringsRouter,
   cardBalances: cardBalancesRouter,
-  auditLog: auditLogRouter
+  auditLog: auditLogRouter,
+  notification: notificationRouter
 });
 
 // export type definition of API

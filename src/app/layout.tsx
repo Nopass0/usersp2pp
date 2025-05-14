@@ -6,6 +6,8 @@ import { TRPCReactProvider } from "~/trpc/react";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "~/components/theme/theme-provider";
 import { Navbar } from "~/components/ui/navbar";
+import { NotificationWrapper } from "~/components/layout/notification-wrapper";
+import { EmergencyNotification } from "~/components/ui/emergency-notification";
 
 export const metadata: Metadata = {
   title: "Панель управления",
@@ -31,11 +33,14 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TRPCReactProvider>
-            <div className="relative flex min-h-screen flex-col">
-              <Navbar />
-              <div className="flex-1">{children}</div>
-            </div>
-            <Toaster richColors />
+            <NotificationWrapper>
+              <div className="relative flex min-h-screen flex-col">
+                <Navbar />
+                <div className="flex-1">{children}</div>
+                <EmergencyNotification />
+              </div>
+              <Toaster richColors />
+            </NotificationWrapper>
           </TRPCReactProvider>
         </ThemeProvider>
       </body>
