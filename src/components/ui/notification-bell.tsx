@@ -69,11 +69,13 @@ export default function NotificationBell() {
   const notificationStore = useNotificationStore();
   const { error: storeError, soundEnabled, pcBeepEnabled, apiUrl, setApiConfig } = notificationStore;
 
-  // Make sure we're using HTTPS for the API URL
+  // No longer forcing HTTPS since the API server doesn't support it
+  // We'll leave the API URL as-is, whether HTTP or HTTPS
   useEffect(() => {
-    if (apiUrl && apiUrl.startsWith('http://')) {
-      const secureUrl = apiUrl.replace('http://', 'https://');
-      setApiConfig(notificationStore.apiKey, secureUrl);
+    // Just validate that the URL has a protocol
+    if (apiUrl && !/^https?:\/\//i.test(apiUrl)) {
+      const fixedUrl = `http://${apiUrl}`;
+      setApiConfig(notificationStore.apiKey, fixedUrl);
     }
   }, [apiUrl]);
   

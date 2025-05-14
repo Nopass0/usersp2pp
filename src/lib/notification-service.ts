@@ -72,7 +72,7 @@ export const useNotificationStore = create<NotificationState>()(
   persist(
     (set, get) => ({
       apiKey: process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || "ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE",
-      apiUrl: process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "https://cabinet-api.example.com",
+      apiUrl: process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "http://192.168.1.106:8000",
       polling: false,
       pollInterval: 5000, // 5 seconds default
       lastChecked: null,
@@ -207,13 +207,8 @@ export async function fetchAndProcessMessages() {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
     try {
-      // Force HTTPS for the API URL to prevent mixed content
-      let secureApiUrl = apiUrl;
-      if (secureApiUrl.startsWith('http://')) {
-        secureApiUrl = secureApiUrl.replace('http://', 'https://');
-      }
-
-      const response = await fetch(`${secureApiUrl}/messages/recent?hours=${hours}`, {
+      // Use the API URL as-is to support HTTP for servers without HTTPS
+      const response = await fetch(`${apiUrl}/messages/recent?hours=${hours}`, {
         method: "GET",
         headers: {
           "accept": "application/json",
