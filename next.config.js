@@ -19,6 +19,21 @@ const config = {
                         // Allow absolutely everything for Content Security Policy
                         key: 'Content-Security-Policy',
                         value: "default-src * http: https: ws: wss: data: blob: 'unsafe-inline' 'unsafe-eval'; script-src * http: https: 'unsafe-inline' 'unsafe-eval'; connect-src * http: https: ws: wss: 'unsafe-inline'; img-src * http: https: data: blob: 'unsafe-inline'; frame-src * http: https:; style-src * http: https: 'unsafe-inline';"
+                    },
+                    {
+                        // Upgrade insecure requests
+                        key: 'Upgrade-Insecure-Requests',
+                        value: '0'
+                    },
+                    {
+                        // Allow mixed content
+                        key: 'Access-Control-Allow-Origin',
+                        value: '*'
+                    },
+                    {
+                        // Block mixed content
+                        key: 'X-Content-Type-Options',
+                        value: 'nosniff'
                     }
                 ]
             }

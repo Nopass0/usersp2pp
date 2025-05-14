@@ -6,22 +6,37 @@
   window.DirectHTTP = {
     // Base URL for API calls
     baseUrl: 'http://95.163.152.102:8000',
-    
+
     // API key for authentication
     apiKey: 'ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE',
-    
+
     // Set API key
     setApiKey: function(key) {
       this.apiKey = key;
     },
-    
+
+    // Flag to track if we should use proxy
+    useProxy: false,
+
+    // Get the effective URL based on whether we need to use the proxy
+    getEffectiveUrl: function(path) {
+      if (this.useProxy) {
+        // Use the Next.js API proxy
+        return '/api/proxy' + path;
+      } else {
+        return this.baseUrl + path;
+      }
+    },
+
     // Get recent messages
     getRecentMessages: function(hours, callback) {
+      const self = this;
       const xhr = new XMLHttpRequest();
-      xhr.open('GET', this.baseUrl + '/messages/recent?hours=' + (hours || 3), true);
+      const path = '/messages/recent?hours=' + (hours || 3);
+      xhr.open('GET', this.getEffectiveUrl(path), true);
       xhr.setRequestHeader('X-API-Key', this.apiKey);
       xhr.setRequestHeader('Accept', 'application/json');
-      
+
       xhr.onload = function() {
         if (xhr.status >= 200 && xhr.status < 300) {
           let response;
@@ -36,11 +51,18 @@
           callback({ error: 'Request failed with status ' + xhr.status });
         }
       };
-      
+
       xhr.onerror = function() {
-        callback({ error: 'Network error' });
+        console.error('Direct request failed, trying proxy...');
+        if (!self.useProxy) {
+          // If direct request failed, try using the proxy
+          self.useProxy = true;
+          self.getRecentMessages(hours, callback);
+        } else {
+          callback({ error: 'Network error (both direct and proxy failed)' });
+        }
       };
-      
+
       xhr.send();
     },
     

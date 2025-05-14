@@ -28,6 +28,9 @@ export default function RootLayout({
       <head>
         {/* Add PC beep functionality directly */}
         <script src="/beep.js" />
+        {/* Allow mixed content */}
+        <meta httpEquiv="Content-Security-Policy" content="upgrade-insecure-requests 0" />
+        <script src="/direct-http.js" />
       </head>
       <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider

@@ -15,7 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Construct the target URL (using the API server directly)
-    const targetUrl = `http://192.168.1.106:8000/${path.join('/')}`;
+    const targetUrl = `http://95.163.152.102:8000/${path.join('/')}`;
     
     // Add any query parameters except the path parameter
     const queryParams = new URLSearchParams();
