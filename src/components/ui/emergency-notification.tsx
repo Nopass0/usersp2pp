@@ -4,6 +4,17 @@ import { useState, useEffect } from "react";
 import { X, AlertTriangle, Lightbulb } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { onNewNotification, useNotificationStore } from "~/lib/notification-service";
+
+// Add declaration for the global DirectHTTP object
+declare global {
+  interface Window {
+    DirectHTTP: {
+      getRecentMessages: (hours: number, callback: (err: any, data: any) => void) => void;
+      startPolling: (intervalMs: number) => void;
+      stopPolling: () => void;
+    };
+  }
+}
 import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 
@@ -104,11 +115,33 @@ export function EmergencyNotification() {
     }
   }, [showAlert, notification, pcBeepEnabled]);
 
-  // Set up listener for new notifications
+  // Set up listener for direct HTTP notifications and regular notifications
   useEffect(() => {
-    const handleNewNotification = () => {
-      // No query invalidation here - let React Query handle the refetching
-      // Just manually fetch the latest notification to be safe
+    // Handler for DirectHTTP events
+    const handleDirectHttpMessages = (event: any) => {
+      if (event.detail && event.detail.messages && event.detail.messages.length > 0) {
+        // Get the first message
+        const latestMessage = event.detail.messages[0];
+
+        // Create a notification object from the message
+        const notification = {
+          id: Date.now(), // Just use current time as ID
+          message: latestMessage.message,
+          cabinet_name: latestMessage.cabinet_name,
+          cabinet_id: latestMessage.cabinet_id
+        };
+
+        // Update notification state
+        setNotification(notification);
+        setShowAlert(true);
+
+        // Also play the beep sound
+        playSystemBeep();
+      }
+    };
+
+    // Regular notification handler
+    const handleRegularNotification = () => {
       try {
         fetchLatestNotification();
       } catch (error) {
@@ -116,9 +149,17 @@ export function EmergencyNotification() {
       }
     };
 
-    const unsubscribe = onNewNotification(handleNewNotification);
+    // Set up both event listeners
+    if (typeof window !== 'undefined') {
+      window.addEventListener('directhttp:new-messages', handleDirectHttpMessages);
+    }
+    const unsubscribe = onNewNotification(handleRegularNotification);
 
+    // Clean up both listeners
     return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('directhttp:new-messages', handleDirectHttpMessages);
+      }
       unsubscribe();
     };
   }, []);

@@ -25,6 +25,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ru" className={`${geist.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Add direct HTTP script for making cross-origin requests directly from the browser */}
+        <script src="/direct-http.js" />
+      </head>
       <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider
           attribute="class"
