@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { SendIcon, MessageSquareIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon, Loader2Icon } from "lucide-react";
+import {
+  SendIcon,
+  MessageSquareIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  AlertCircleIcon,
+  Loader2Icon,
+} from "lucide-react";
 
 import {
   Dialog,
@@ -16,12 +23,12 @@ import { Alert, AlertTitle, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "~/components/ui/select";
 
 interface TelegramChat {
@@ -49,10 +56,15 @@ export function TelegramChatsDialog({
   const [message, setMessage] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [sendingMessage, setSendingMessage] = useState<boolean>(false);
-  const [responseData, setResponseData] = useState<ResponseMessage | null>(null);
+  const [responseData, setResponseData] = useState<ResponseMessage | null>(
+    null,
+  );
 
-  const apiKey = process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || "ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE";
-  const apiUrl = process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "http://192.168.1.106:8000";
+  const apiKey =
+    process.env.NEXT_PUBLIC_TELEGRAM_API_KEY ||
+    "ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE";
+  const apiUrl =
+    process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "http://95.163.152.102:8000";
 
   // Fetch available chats
   useEffect(() => {
@@ -69,9 +81,9 @@ export function TelegramChatsDialog({
       const response = await fetch(`${apiUrl}/chats`, {
         method: "GET",
         headers: {
-          "accept": "application/json",
-          "X-API-Key": apiKey
-        }
+          accept: "application/json",
+          "X-API-Key": apiKey,
+        },
       });
 
       if (!response.ok) {
@@ -80,7 +92,7 @@ export function TelegramChatsDialog({
 
       const data = await response.json();
       setChats(data.chats || []);
-      
+
       // Auto-select the first chat if available
       if (data.chats && data.chats.length > 0) {
         setSelectedChatId(data.chats[0].id.toString());
@@ -88,7 +100,8 @@ export function TelegramChatsDialog({
     } catch (error) {
       console.error("Failed to fetch chats:", error);
       toast.error("Ошибка при загрузке чатов", {
-        description: error instanceof Error ? error.message : "Неизвестная ошибка"
+        description:
+          error instanceof Error ? error.message : "Неизвестная ошибка",
       });
     } finally {
       setLoading(false);
@@ -98,7 +111,7 @@ export function TelegramChatsDialog({
   const handleSendMessage = async () => {
     if (!selectedChatId || !message.trim()) {
       toast.error("Ошибка", {
-        description: "Выберите кабинет и введите сообщение"
+        description: "Выберите кабинет и введите сообщение",
       });
       return;
     }
@@ -110,14 +123,14 @@ export function TelegramChatsDialog({
       const response = await fetch(`${apiUrl}/send`, {
         method: "POST",
         headers: {
-          "accept": "application/json",
+          accept: "application/json",
           "Content-Type": "application/json",
-          "X-API-Key": apiKey
+          "X-API-Key": apiKey,
         },
         body: JSON.stringify({
           chat_id: parseInt(selectedChatId),
-          text: message
-        })
+          text: message,
+        }),
       });
 
       if (!response.ok) {
@@ -129,24 +142,26 @@ export function TelegramChatsDialog({
 
       if (data.success) {
         toast.success("Запрос обработан", {
-          description: data.auto_withdraw !== undefined
-            ? `Автовывод: ${data.auto_withdraw ? "ДА" : "НЕТ"}`
-            : "Операция успешно выполнена"
+          description:
+            data.auto_withdraw !== undefined
+              ? `Автовывод: ${data.auto_withdraw ? "ДА" : "НЕТ"}`
+              : "Операция успешно выполнена",
         });
         setMessage("");
       } else {
         toast.error("Ошибка", {
-          description: data.message || "Ошибка при обработке запроса"
+          description: data.message || "Ошибка при обработке запроса",
         });
       }
     } catch (error) {
       console.error("Failed to send message:", error);
       toast.error("Ошибка при отправке сообщения", {
-        description: error instanceof Error ? error.message : "Неизвестная ошибка"
+        description:
+          error instanceof Error ? error.message : "Неизвестная ошибка",
       });
       setResponseData({
         success: false,
-        message: error instanceof Error ? error.message : "Неизвестная ошибка"
+        message: error instanceof Error ? error.message : "Неизвестная ошибка",
       });
     } finally {
       setSendingMessage(false);
@@ -161,9 +176,7 @@ export function TelegramChatsDialog({
             <MessageSquareIcon className="h-5 w-5" />
             ВЫВОД СРЕДСТВ
           </DialogTitle>
-          <DialogDescription>
-            Выберите кабинет
-          </DialogDescription>
+          <DialogDescription>Выберите кабинет</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 py-4">
@@ -236,15 +249,21 @@ export function TelegramChatsDialog({
           {responseData && (
             <div className="mt-4">
               {responseData.success ? (
-                <Alert className="bg-green-500/10 border-green-500">
+                <Alert className="border-green-500 bg-green-500/10">
                   <CheckCircleIcon className="h-4 w-4 text-green-500" />
                   <AlertTitle className="text-green-500">Успешно</AlertTitle>
-                  <AlertDescription className="text-sm text-muted-foreground">
+                  <AlertDescription className="text-muted-foreground text-sm">
                     {responseData.message}
                     {responseData.auto_withdraw !== undefined && (
                       <div className="mt-2 flex items-center font-medium">
                         Автовывод:
-                        <span className={responseData.auto_withdraw ? "text-green-500 ml-2" : "text-red-500 ml-2"}>
+                        <span
+                          className={
+                            responseData.auto_withdraw
+                              ? "ml-2 text-green-500"
+                              : "ml-2 text-red-500"
+                          }
+                        >
                           {responseData.auto_withdraw ? "ДА" : "НЕТ"}
                         </span>
                       </div>
@@ -252,10 +271,10 @@ export function TelegramChatsDialog({
                   </AlertDescription>
                 </Alert>
               ) : (
-                <Alert className="bg-red-500/10 border-red-500">
+                <Alert className="border-red-500 bg-red-500/10">
                   <AlertCircleIcon className="h-4 w-4 text-red-500" />
                   <AlertTitle className="text-red-500">Ошибка</AlertTitle>
-                  <AlertDescription className="text-sm text-muted-foreground">
+                  <AlertDescription className="text-muted-foreground text-sm">
                     {responseData.message}
                   </AlertDescription>
                 </Alert>
