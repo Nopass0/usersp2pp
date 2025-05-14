@@ -73,22 +73,61 @@ export function TelegramChatsDialog({
   }, [open]);
 
   const fetchChats = async () => {
+    if (!apiUrl) {
+      toast.error("Ошибка конфигурации", {
+        description: "API URL не настроен, проверьте настройки",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
-      // Use server-side proxy to avoid mixed content issues
-      const response = await fetch(`/api/proxy/chats`, {
-        method: "GET",
-        headers: {
-          accept: "application/json",
-          "X-API-Key": apiKey,
-        },
+
+      // Make a direct HTTP request to the API
+      let targetUrl = apiUrl;
+      if (!targetUrl.endsWith('/')) targetUrl += '/';
+      targetUrl += 'chats';
+
+      console.log("Fetching chats directly from:", targetUrl);
+
+      // Use XMLHttpRequest for better control
+      const xhr = new XMLHttpRequest();
+
+      // Create a promise wrapper around XHR
+      const result = await new Promise((resolve, reject) => {
+        // Set timeout (10 seconds)
+        const timeout = setTimeout(() => {
+          xhr.abort();
+          reject(new Error("Request timed out"));
+        }, 10000);
+
+        xhr.open('GET', targetUrl, true);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.setRequestHeader('X-API-Key', apiKey);
+
+        xhr.onload = function() {
+          clearTimeout(timeout);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data);
+            } catch (e) {
+              reject(new Error("Invalid JSON response"));
+            }
+          } else {
+            reject(new Error(`HTTP Error: ${xhr.status}`));
+          }
+        };
+
+        xhr.onerror = function() {
+          clearTimeout(timeout);
+          reject(new Error("Network error"));
+        };
+
+        xhr.send();
       });
 
-      if (!response.ok) {
-        throw new Error(`Error fetching chats: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = result as { chats: TelegramChat[] };
       setChats(data.chats || []);
 
       // Auto-select the first chat if available
@@ -96,11 +135,51 @@ export function TelegramChatsDialog({
         setSelectedChatId(data.chats[0].id.toString());
       }
     } catch (error) {
-      console.error("Failed to fetch chats:", error);
-      toast.error("Ошибка при загрузке чатов", {
-        description:
-          error instanceof Error ? error.message : "Неизвестная ошибка",
-      });
+      console.error("Failed to fetch chats directly:", error);
+
+      // Fallback to proxy
+      try {
+        console.log("Falling back to proxy for chat fetching");
+        toast.info("Используем резервный метод для загрузки чатов...");
+
+        // Use proxy as fallback
+        const response = await fetch(`/api/proxy/chats`, {
+          method: "GET",
+          headers: {
+            accept: "application/json",
+            "X-API-Key": apiKey,
+          },
+          // Manual timeout using AbortController for broader browser support
+          signal: (() => {
+            const controller = new AbortController();
+            setTimeout(() => controller.abort(), 15000); // 15 second timeout
+            return controller.signal;
+          })(),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error fetching chats via proxy: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setChats(data.chats || []);
+
+        // Auto-select the first chat if available
+        if (data.chats && data.chats.length > 0) {
+          setSelectedChatId(data.chats[0].id.toString());
+          toast.success("Чаты загружены через прокси");
+        } else {
+          toast.warning("Нет доступных чатов");
+        }
+      } catch (fallbackError) {
+        console.error("Fallback also failed:", fallbackError);
+        toast.error("Ошибка при загрузке чатов", {
+          description:
+            fallbackError instanceof Error
+              ? fallbackError.message
+              : "Все методы загрузки завершились с ошибкой",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -114,29 +193,64 @@ export function TelegramChatsDialog({
       return;
     }
 
+    if (!apiUrl) {
+      toast.error("Ошибка конфигурации", {
+        description: "API URL не настроен, проверьте настройки",
+      });
+      return;
+    }
+
     try {
       setSendingMessage(true);
       setResponseData(null);
 
-      // Use server-side proxy to avoid mixed content issues
-      const response = await fetch(`/api/proxy/send`, {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          "Content-Type": "application/json",
-          "X-API-Key": apiKey,
-        },
-        body: JSON.stringify({
+      // Make a direct HTTP request to the API, adhering to the documentation
+      // Create the full URL ensuring it's valid
+      let targetUrl = apiUrl;
+      if (!targetUrl.endsWith('/')) targetUrl += '/';
+      targetUrl += 'send';
+
+      console.log("Sending message directly to:", targetUrl);
+
+      // Send using XMLHttpRequest for more control over errors and timeouts
+      const xhr = new XMLHttpRequest();
+
+      // Set timeout (15 seconds)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Request timed out")), 15000)
+      );
+
+      const requestPromise = new Promise((resolve, reject) => {
+        xhr.open('POST', targetUrl, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.setRequestHeader('X-API-Key', apiKey);
+
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data);
+            } catch (e) {
+              reject(new Error("Invalid JSON response"));
+            }
+          } else {
+            reject(new Error(`HTTP Error: ${xhr.status}`));
+          }
+        };
+
+        xhr.onerror = function() {
+          reject(new Error("Network error"));
+        };
+
+        xhr.send(JSON.stringify({
           chat_id: parseInt(selectedChatId),
           text: message,
-        }),
+        }));
       });
 
-      if (!response.ok) {
-        throw new Error(`Error sending message: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // Race between timeout and successful completion
+      const data = await Promise.race([requestPromise, timeoutPromise]) as ResponseMessage;
       setResponseData(data);
 
       if (data.success) {
@@ -153,15 +267,65 @@ export function TelegramChatsDialog({
         });
       }
     } catch (error) {
-      console.error("Failed to send message:", error);
-      toast.error("Ошибка при отправке сообщения", {
-        description:
-          error instanceof Error ? error.message : "Неизвестная ошибка",
-      });
-      setResponseData({
-        success: false,
-        message: error instanceof Error ? error.message : "Неизвестная ошибка",
-      });
+      console.error("Failed to send message directly:", error);
+
+      // Fallback to proxy if direct request fails
+      try {
+        console.log("Falling back to proxy for message sending");
+        toast.info("Используем резервный метод отправки...");
+
+        // Use proxy as fallback
+        const response = await fetch(`/api/proxy/send`, {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "Content-Type": "application/json",
+            "X-API-Key": apiKey,
+          },
+          body: JSON.stringify({
+            chat_id: parseInt(selectedChatId),
+            text: message,
+          }),
+          // Manual timeout using AbortController for broader browser support
+          signal: (() => {
+            const controller = new AbortController();
+            setTimeout(() => controller.abort(), 15000); // 15 second timeout
+            return controller.signal;
+          })(),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error sending message via proxy: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setResponseData(data);
+
+        if (data.success) {
+          toast.success("Запрос обработан через прокси", {
+            description: data.auto_withdraw !== undefined
+              ? `Автовывод: ${data.auto_withdraw ? "ДА" : "НЕТ"}`
+              : "Операция успешно выполнена",
+          });
+          setMessage("");
+        } else {
+          throw new Error(data.message || "Ошибка при обработке запроса");
+        }
+      } catch (fallbackError) {
+        console.error("Fallback also failed:", fallbackError);
+        toast.error("Ошибка при отправке сообщения", {
+          description:
+            fallbackError instanceof Error
+              ? fallbackError.message
+              : "Все методы отправки завершились с ошибкой",
+        });
+        setResponseData({
+          success: false,
+          message: fallbackError instanceof Error
+            ? fallbackError.message
+            : "Все методы отправки завершились с ошибкой",
+        });
+      }
     } finally {
       setSendingMessage(false);
     }
