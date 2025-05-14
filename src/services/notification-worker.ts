@@ -1,9 +1,13 @@
 import { prisma } from "~/server/db";
 
-// API Configuration (move to env in production)
-const API_KEY =
-  process.env.TELEGRAM_API_KEY || "ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE";
-const API_URL = process.env.TELEGRAM_API_URL || "http://95.163.152.102:8000";
+// API Configuration
+const API_KEY = process.env.TELEGRAM_API_KEY || "";
+const API_URL = process.env.TELEGRAM_API_URL || "";
+
+// Validate API configuration
+if (!API_KEY || !API_URL) {
+  console.error("API_KEY and API_URL environment variables are required");
+}
 
 // Helper to extract cabinet ID from message
 function extractCabinetId(message: string): string | null {

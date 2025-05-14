@@ -60,11 +60,8 @@ export function TelegramChatsDialog({
     null,
   );
 
-  const apiKey =
-    process.env.NEXT_PUBLIC_TELEGRAM_API_KEY ||
-    "ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE";
-  const apiUrl =
-    process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "http://95.163.152.102:8000";
+  const apiKey = process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || "";
+  const apiUrl = process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "";
 
   // Fetch available chats
   useEffect(() => {
@@ -78,7 +75,8 @@ export function TelegramChatsDialog({
   const fetchChats = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${apiUrl}/chats`, {
+      // Use server-side proxy to avoid mixed content issues
+      const response = await fetch(`/api/proxy/chats`, {
         method: "GET",
         headers: {
           accept: "application/json",
@@ -120,7 +118,8 @@ export function TelegramChatsDialog({
       setSendingMessage(true);
       setResponseData(null);
 
-      const response = await fetch(`${apiUrl}/send`, {
+      // Use server-side proxy to avoid mixed content issues
+      const response = await fetch(`/api/proxy/send`, {
         method: "POST",
         headers: {
           accept: "application/json",

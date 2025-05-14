@@ -28,8 +28,17 @@ export default function RootLayout({
       <head>
         {/* Add PC beep functionality directly */}
         <script src="/beep.js" />
-        {/* Allow mixed content */}
-        <meta httpEquiv="Content-Security-Policy" content="upgrade-insecure-requests 0" />
+        {/* Telegram API configuration */}
+        <meta name="telegram-api-key" content={process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || ""} />
+        <meta name="telegram-api-url" content={process.env.NEXT_PUBLIC_TELEGRAM_API_URL || ""} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.TELEGRAM_API_KEY = "${process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || ""}";
+              window.TELEGRAM_API_URL = "${process.env.NEXT_PUBLIC_TELEGRAM_API_URL || ""}";
+            `
+          }}
+        />
         <script src="/direct-http.js" />
       </head>
       <body className="min-h-screen bg-background font-sans antialiased">

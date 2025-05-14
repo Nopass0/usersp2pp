@@ -72,8 +72,8 @@ interface NotificationState {
 export const useNotificationStore = create<NotificationState>()(
   persist(
     (set, get) => ({
-      apiKey: process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || "ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE",
-      apiUrl: process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "http://192.168.1.106:8000",
+      apiKey: process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || "",
+      apiUrl: process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "",
       polling: false,
       pollInterval: 5000, // 5 seconds default
       lastChecked: null,
@@ -207,30 +207,32 @@ export async function fetchAndProcessMessages() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    // Always ensure we're using HTTP protocol (not HTTPS)
+    // Ensure URL has a protocol
     let directUrl = apiUrl;
 
-    // Force HTTP protocol
-    if (directUrl.startsWith('https://')) {
-      directUrl = directUrl.replace('https://', 'http://');
-    } else if (!directUrl.startsWith('http://')) {
-      directUrl = `http://${directUrl}`;
+    // Add protocol if missing
+    if (!directUrl.startsWith('http://') && !directUrl.startsWith('https://')) {
+      directUrl = `https://${directUrl}`;
     }
 
-    // Hard-code the correct IP address
-    directUrl = 'http://95.163.152.102:8000';
+    // Hard-code the correct IP address (not used - we use proxy instead)
+    // directUrl = 'http://95.163.152.102:8000';
 
-    console.log("Fetching from:", directUrl);
+    // console.log("Fetching from:", directUrl);
 
-    const response = await fetch(`${directUrl}/messages/recent?hours=${hours}`, {
+    // Try using our server-side proxy instead of direct HTTP
+    // This avoids mixed content issues completely
+    const proxyUrl = `/api/proxy/messages/recent?hours=${hours}`;
+
+    console.log("Using proxy URL:", proxyUrl);
+
+    const response = await fetch(proxyUrl, {
       method: "GET",
       headers: {
         "accept": "application/json",
         "X-API-Key": apiKey
       },
-      signal: controller.signal,
-      // Note: no-cors mode will not allow reading the response content in JavaScript
-      // so we use regular mode and let the browser handle it
+      signal: controller.signal
     });
 
     clearTimeout(timeoutId);

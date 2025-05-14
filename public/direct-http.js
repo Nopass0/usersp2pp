@@ -4,39 +4,25 @@
 (function() {
   // Create a global namespace for our HTTP utility
   window.DirectHTTP = {
-    // Base URL for API calls
-    baseUrl: 'http://95.163.152.102:8000',
+    // Base URL for API calls - must be set via environment variable
+    baseUrl: '',
 
-    // API key for authentication
-    apiKey: 'ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE',
-
+    // API key for authentication - must be set via environment variable
+    apiKey: '',
+    
     // Set API key
     setApiKey: function(key) {
       this.apiKey = key;
     },
-
-    // Flag to track if we should use proxy
-    useProxy: false,
-
-    // Get the effective URL based on whether we need to use the proxy
-    getEffectiveUrl: function(path) {
-      if (this.useProxy) {
-        // Use the Next.js API proxy
-        return '/api/proxy' + path;
-      } else {
-        return this.baseUrl + path;
-      }
-    },
-
+    
     // Get recent messages
     getRecentMessages: function(hours, callback) {
-      const self = this;
       const xhr = new XMLHttpRequest();
-      const path = '/messages/recent?hours=' + (hours || 3);
-      xhr.open('GET', this.getEffectiveUrl(path), true);
+      // Always use server-side proxy to avoid mixed content issues
+      xhr.open('GET', '/api/proxy/messages/recent?hours=' + (hours || 3), true);
       xhr.setRequestHeader('X-API-Key', this.apiKey);
       xhr.setRequestHeader('Accept', 'application/json');
-
+      
       xhr.onload = function() {
         if (xhr.status >= 200 && xhr.status < 300) {
           let response;
@@ -51,18 +37,11 @@
           callback({ error: 'Request failed with status ' + xhr.status });
         }
       };
-
+      
       xhr.onerror = function() {
-        console.error('Direct request failed, trying proxy...');
-        if (!self.useProxy) {
-          // If direct request failed, try using the proxy
-          self.useProxy = true;
-          self.getRecentMessages(hours, callback);
-        } else {
-          callback({ error: 'Network error (both direct and proxy failed)' });
-        }
+        callback({ error: 'Network error' });
       };
-
+      
       xhr.send();
     },
     
@@ -108,11 +87,37 @@
   
   // Auto-initialize polling when the page loads
   document.addEventListener('DOMContentLoaded', function() {
+    // Try to get API config from meta tags or data attributes
+    try {
+      const apiKeyMeta = document.querySelector('meta[name="telegram-api-key"]');
+      const apiUrlMeta = document.querySelector('meta[name="telegram-api-url"]');
+
+      if (apiKeyMeta && apiKeyMeta.content) {
+        window.DirectHTTP.apiKey = apiKeyMeta.content;
+      }
+
+      if (apiUrlMeta && apiUrlMeta.content) {
+        window.DirectHTTP.baseUrl = apiUrlMeta.content;
+      }
+
+      // Check if values are in the global window object
+      if (window.TELEGRAM_API_KEY) {
+        window.DirectHTTP.apiKey = window.TELEGRAM_API_KEY;
+      }
+
+      if (window.TELEGRAM_API_URL) {
+        window.DirectHTTP.baseUrl = window.TELEGRAM_API_URL;
+      }
+    } catch (e) {
+      console.error('Error initializing API config:', e);
+    }
+
     // Debug mixed content issues
     console.log('DirectHTTP initializing...');
     console.log('Page protocol:', window.location.protocol);
-    console.log('Target API URL:', window.DirectHTTP.baseUrl);
-
+    console.log('Target API URL:', window.DirectHTTP.baseUrl || 'Not configured');
+    console.log('Using proxy at: /api/proxy');
+    
     // Check if we're on HTTPS and trying to access HTTP
     if (window.location.protocol === 'https:' && window.DirectHTTP.baseUrl.startsWith('http:')) {
       console.warn('⚠️ Mixed content warning: Accessing HTTP resource from HTTPS page');
@@ -121,15 +126,15 @@
       console.log('2. Meta tag in layout.tsx');
       console.log('3. Fallback proxy mechanism');
     }
-
+    
     // Play PC beep when new messages arrive
     window.addEventListener('directhttp:new-messages', function(e) {
       if (e.detail.messages && e.detail.messages.length > 0) {
         console.log('Received new messages:', e.detail.messages.length);
-
+        
         // Play system beep
         console.log('\u0007'); // ASCII BEL character
-
+        
         // Also try to play an audio beep
         try {
           const audio = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Cc+CDv/7xA4Tvh9Rz/y8QADBwMWgQAZG/ILNAARQ4GLTcDeIIIhxGOBAuD7hOfBB3/94gcJ3w+o5/5eIAIAAAVwWgQAVQ2ORaIQwEMAJiDg95G4nQL7mQVWI6GwRcfsZAcsKkJvxgxEjzFUgfHoSQ9Qq7KNwqHwuB13MA4a1q/DmBrHgPcmjiGoh//EwC5nGPEmS4RcfkVKOhJf+WOgoxJclFz3kgn//dBA+ya1GhurNn8zb//9NNutNuhz31f////9vt///z+IdAEAAAK4LQIAKobHItEIYCGAExBwe8jcToF9zIKrEdDYIuP2MgOWFSE34wYiR5iqQPj0JIeoVdlG4VD4XA67mAcNa1fhzA1jwHuTRxDUQ//iYBczjHiTJcIuPyKlHQkv/LHQUYkuSi57yQT//uggfZNajQ3Vmz+Zt//+mm3Wm3Q576v////+32///5/EOgAAADVghQAAAAA==");
@@ -141,23 +146,21 @@
         }
       }
     });
-
-    // Test connection to API
-    fetch(window.DirectHTTP.baseUrl + '/ping', {
+    
+    // Test connection to API via proxy
+    fetch('/api/proxy/ping', {
       method: 'GET',
-      mode: 'no-cors', // Important for mixed content
       headers: {
         'X-API-Key': window.DirectHTTP.apiKey
       }
     })
     .then(() => {
-      console.log('✅ Direct HTTP connection test successful');
+      console.log('✅ Proxy connection test successful');
     })
     .catch(err => {
-      console.warn('❌ Direct HTTP connection test failed:', err.message);
-      console.log('Will fallback to proxy if needed');
+      console.warn('❌ Proxy connection test failed:', err.message);
     });
-
+    
     // Start polling every 5 seconds
     console.log('Starting polling...');
     window.DirectHTTP.startPolling(5000);

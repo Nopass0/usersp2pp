@@ -4,11 +4,11 @@
 (function() {
   // Create a global namespace for our HTTP utility
   window.DirectHTTP = {
-    // Base URL for API calls
-    baseUrl: 'http://95.163.152.102:8000',
-    
-    // API key for authentication
-    apiKey: 'ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE',
+    // Base URL for API calls - must be set via environment variable
+    baseUrl: '',
+
+    // API key for authentication - must be set via environment variable
+    apiKey: '',
     
     // Set API key
     setApiKey: function(key) {
@@ -18,7 +18,8 @@
     // Get recent messages
     getRecentMessages: function(hours, callback) {
       const xhr = new XMLHttpRequest();
-      xhr.open('GET', this.baseUrl + '/messages/recent?hours=' + (hours || 3), true);
+      // Always use server-side proxy to avoid mixed content issues
+      xhr.open('GET', '/api/proxy/messages/recent?hours=' + (hours || 3), true);
       xhr.setRequestHeader('X-API-Key', this.apiKey);
       xhr.setRequestHeader('Accept', 'application/json');
       
@@ -86,9 +87,51 @@
   
   // Auto-initialize polling when the page loads
   document.addEventListener('DOMContentLoaded', function() {
+    // Try to get API config from meta tags or data attributes
+    try {
+      const apiKeyMeta = document.querySelector('meta[name="telegram-api-key"]');
+      const apiUrlMeta = document.querySelector('meta[name="telegram-api-url"]');
+
+      if (apiKeyMeta && apiKeyMeta.content) {
+        window.DirectHTTP.apiKey = apiKeyMeta.content;
+      }
+
+      if (apiUrlMeta && apiUrlMeta.content) {
+        window.DirectHTTP.baseUrl = apiUrlMeta.content;
+      }
+
+      // Check if values are in the global window object
+      if (window.TELEGRAM_API_KEY) {
+        window.DirectHTTP.apiKey = window.TELEGRAM_API_KEY;
+      }
+
+      if (window.TELEGRAM_API_URL) {
+        window.DirectHTTP.baseUrl = window.TELEGRAM_API_URL;
+      }
+    } catch (e) {
+      console.error('Error initializing API config:', e);
+    }
+
+    // Debug mixed content issues
+    console.log('DirectHTTP initializing...');
+    console.log('Page protocol:', window.location.protocol);
+    console.log('Target API URL:', window.DirectHTTP.baseUrl || 'Not configured');
+    console.log('Using proxy at: /api/proxy');
+    
+    // Check if we're on HTTPS and trying to access HTTP
+    if (window.location.protocol === 'https:' && window.DirectHTTP.baseUrl.startsWith('http:')) {
+      console.warn('⚠️ Mixed content warning: Accessing HTTP resource from HTTPS page');
+      console.log('Solutions in place:');
+      console.log('1. Content-Security-Policy headers in next.config.js');
+      console.log('2. Meta tag in layout.tsx');
+      console.log('3. Fallback proxy mechanism');
+    }
+    
     // Play PC beep when new messages arrive
     window.addEventListener('directhttp:new-messages', function(e) {
       if (e.detail.messages && e.detail.messages.length > 0) {
+        console.log('Received new messages:', e.detail.messages.length);
+        
         // Play system beep
         console.log('\u0007'); // ASCII BEL character
         
@@ -99,11 +142,27 @@
           audio.play();
         } catch (e) {
           // Ignore errors - the console.log beep should still work
+          console.warn('Audio play error:', e);
         }
       }
     });
     
+    // Test connection to API via proxy
+    fetch('/api/proxy/ping', {
+      method: 'GET',
+      headers: {
+        'X-API-Key': window.DirectHTTP.apiKey
+      }
+    })
+    .then(() => {
+      console.log('✅ Proxy connection test successful');
+    })
+    .catch(err => {
+      console.warn('❌ Proxy connection test failed:', err.message);
+    });
+    
     // Start polling every 5 seconds
+    console.log('Starting polling...');
     window.DirectHTTP.startPolling(5000);
   });
 })();

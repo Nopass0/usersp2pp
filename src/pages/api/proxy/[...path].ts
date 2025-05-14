@@ -14,8 +14,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid path' });
     }
 
-    // Construct the target URL (using the API server directly)
-    const targetUrl = `http://95.163.152.102:8000/${path.join('/')}`;
+    // Get API URL from environment variable with fallback
+    const apiBaseUrl = process.env.TELEGRAM_API_URL || "";
+    if (!apiBaseUrl) {
+      return res.status(500).json({ error: 'API URL not configured' });
+    }
+
+    // Construct the target URL
+    const targetUrl = `${apiBaseUrl}/${path.join('/')}`;
     
     // Add any query parameters except the path parameter
     const queryParams = new URLSearchParams();

@@ -21,11 +21,15 @@ export function NotificationWrapper({ children }: NotificationWrapperProps) {
 
       const store = useNotificationStore.getState();
 
-      // Set API values directly
-      store.setApiConfig(
-        "ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE",
-        "http://95.163.152.102:8000",
-      );
+      // Set API values from environment variables
+      const apiKey = process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || "";
+      const apiUrl = process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "";
+
+      if (!apiKey || !apiUrl) {
+        console.error("API key and URL must be set in environment variables");
+      }
+
+      store.setApiConfig(apiKey, apiUrl);
 
       // Start polling with a delay to ensure config is set
       const pollingTimeout = setTimeout(() => {

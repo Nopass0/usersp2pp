@@ -11,6 +11,8 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    TELEGRAM_API_KEY: z.string().min(1, "Telegram API Key is required"),
+    TELEGRAM_API_URL: z.string().url("Telegram API URL must be a valid URL"),
   },
 
   /**
@@ -19,7 +21,8 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    // NEXT_PUBLIC_CLIENTVAR: z.string(),
+    NEXT_PUBLIC_TELEGRAM_API_KEY: z.string().min(1, "Telegram API Key is required"),
+    NEXT_PUBLIC_TELEGRAM_API_URL: z.string().url("Telegram API URL must be a valid URL"),
   },
 
   /**
@@ -29,7 +32,10 @@ export const env = createEnv({
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
-    // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
+    TELEGRAM_API_KEY: process.env.TELEGRAM_API_KEY,
+    TELEGRAM_API_URL: process.env.TELEGRAM_API_URL,
+    NEXT_PUBLIC_TELEGRAM_API_KEY: process.env.NEXT_PUBLIC_TELEGRAM_API_KEY,
+    NEXT_PUBLIC_TELEGRAM_API_URL: process.env.NEXT_PUBLIC_TELEGRAM_API_URL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
