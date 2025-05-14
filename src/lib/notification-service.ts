@@ -72,7 +72,7 @@ export const useNotificationStore = create<NotificationState>()(
   persist(
     (set, get) => ({
       apiKey: process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || "ob5QCRUUuz9HhoB1Yj9FEsm1Hb03U4tct71rgGcnVNE",
-      apiUrl: process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "http://192.168.1.106:8000",
+      apiUrl: process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "https://cabinet-api.example.com",
       polling: false,
       pollInterval: 5000, // 5 seconds default
       lastChecked: null,
@@ -180,9 +180,17 @@ export const useNotificationStore = create<NotificationState>()(
 // Function to fetch messages from API
 export async function fetchAndProcessMessages() {
   const { apiKey, apiUrl, lastChecked, addNotifications, setError } = useNotificationStore.getState();
-  
+
   if (!apiKey || !apiUrl) {
     const errorMsg = "API configuration missing";
+    console.error(errorMsg);
+    setError(errorMsg);
+    return;
+  }
+
+  // Handle missing/improper protocol in URL
+  if (!/^https?:\/\//i.test(apiUrl)) {
+    const errorMsg = "API URL must include protocol (https:// or http://)";
     console.error(errorMsg);
     setError(errorMsg);
     return;
@@ -199,7 +207,13 @@ export async function fetchAndProcessMessages() {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
     try {
-      const response = await fetch(`${apiUrl}/messages/recent?hours=${hours}`, {
+      // Force HTTPS for the API URL to prevent mixed content
+      let secureApiUrl = apiUrl;
+      if (secureApiUrl.startsWith('http://')) {
+        secureApiUrl = secureApiUrl.replace('http://', 'https://');
+      }
+
+      const response = await fetch(`${secureApiUrl}/messages/recent?hours=${hours}`, {
         method: "GET",
         headers: {
           "accept": "application/json",
@@ -243,13 +257,18 @@ export async function fetchAndProcessMessages() {
 async function saveMessagesToDatabase(messages: CabinetMessage[]) {
   try {
     // Call the API endpoint to save messages
-    await fetch('/api/notifications/save', {
+    const response = await fetch('/api/notifications/save', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ messages }),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error saving messages (${response.status}):`, errorText);
+    }
   } catch (error) {
     console.error("Error saving messages to database:", error);
   }
@@ -310,11 +329,20 @@ function playNotificationSound() {
 function playPcBeep() {
   if (typeof window === 'undefined') return;
 
+  // Try with a data URI approach (works in most browsers)
+  try {
+    const audio = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Cc+CDv/7xA4Tvh9Rz/y8QADBwMWgQAZG/ILNAARQ4GLTcDeIIIhxGOBAuD7hOfBB3/94gcJ3w+o5/5eIAIAAAVwWgQAVQ2ORaIQwEMAJiDg95G4nQL7mQVWI6GwRcfsZAcsKkJvxgxEjzFUgfHoSQ9Qq7KNwqHwuB13MA4a1q/DmBrHgPcmjiGoh//EwC5nGPEmS4RcfkVKOhJf+WOgoxJclFz3kgn//dBA+ya1GhurNn8zb//9NNutNuhz31f////9vt///z+IdAEAAAK4LQIAKobHItEIYCGAExBwe8jcToF9zIKrEdDYIuP2MgOWFSE34wYiR5iqQPj0JIeoVdlG4VD4XA67mAcNa1fhzA1jwHuTRxDUQ//iYBczjHiTJcIuPyKlHQkv/LHQUYkuSi57yQT//uggfZNajQ3Vmz+Zt//+mm3Wm3Q576v////+32///5/EOgAAADVghQAAAAA==");
+    audio.play().catch(() => {});
+  } catch (e) {
+    // Silent fallback
+  }
+
+  // Try BEL character method (works in terminal emulators)
   try {
     // Try directly first - this is the most reliable for system beep
     console.log('\u0007'); // BEL character (ASCII 7)
   } catch (e) {
-    console.log("Direct PC beep failed:", e);
+    // Silent fallback
   }
 
   // Create multiple short beeps for better alerting
@@ -324,7 +352,7 @@ function playPcBeep() {
         // Try to use console.log approach with special character
         console.log('\u0007'); // BEL character (ASCII 7)
       } catch (e) {
-        console.log("PC beep failed:", e);
+        // Silent fallback
       }
 
       // Try alternative approach with audio context

@@ -5,10 +5,26 @@ const config = {
     reactStrictMode: true,
     typescript: {
         ignoreBuildErrors: true,
-      },
-      eslint: {
+    },
+    eslint: {
         ignoreDuringBuilds: true,
-      },
+    },
+    // Allow mixed content for local development (not recommended for production)
+    async headers() {
+        return [
+            {
+                source: '/(.*)',
+                headers: [
+                    {
+                        key: 'Content-Security-Policy',
+                        value: process.env.NODE_ENV === 'development'
+                            ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http: https: ws:;"
+                            : "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https: ws:;"
+                    }
+                ]
+            }
+        ];
+    }
 };
 
 export default config;

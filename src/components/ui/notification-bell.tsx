@@ -67,7 +67,15 @@ export default function NotificationBell() {
   
   // Get notification store state
   const notificationStore = useNotificationStore();
-  const { error: storeError, soundEnabled, pcBeepEnabled } = notificationStore;
+  const { error: storeError, soundEnabled, pcBeepEnabled, apiUrl, setApiConfig } = notificationStore;
+
+  // Make sure we're using HTTPS for the API URL
+  useEffect(() => {
+    if (apiUrl && apiUrl.startsWith('http://')) {
+      const secureUrl = apiUrl.replace('http://', 'https://');
+      setApiConfig(notificationStore.apiKey, secureUrl);
+    }
+  }, [apiUrl]);
   
   // Start notification polling
   useEffect(() => {
