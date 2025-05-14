@@ -762,7 +762,7 @@ model ViresTransactionPayin {
 }
 
 model CabinetNotification {
-  id             Int          @id @default(autoincrement())
+  id             BigInt       @id
   chat_id        Int
   chat_name      String
   cabinet_name   String

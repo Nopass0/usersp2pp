@@ -78,9 +78,26 @@ export default async function handler(
           // Temporary: try to create notification using the old message_id field
           // If it fails, we'll catch the error and continue 
           try {
+            // Generate a unique BigInt ID based on message_id or timestamp
+            let notificationId: bigint;
+
+            try {
+              // Try to use the message_id directly as a BigInt if it's numeric
+              if (typeof message.message_id === 'number' ||
+                 (typeof message.message_id === 'string' && /^\d+$/.test(message.message_id))) {
+                notificationId = BigInt(message.message_id);
+              } else {
+                // Otherwise generate an ID using timestamp and random number
+                notificationId = BigInt(Date.now() * 1000 + Math.floor(Math.random() * 1000));
+              }
+            } catch (e) {
+              // Fallback if conversion fails
+              notificationId = BigInt(Date.now() * 1000 + Math.floor(Math.random() * 1000));
+            }
+
             const notification = await db.cabinetNotification.create({
               data: {
-                // Use smaller hash value for chat_id to avoid INT limitations
+                id: notificationId, // Use explicit BigInt ID
                 chat_id: Math.abs(parseInt(messageIdStr) % 2147483647), // Use hash value within INT4 range
                 chat_name: message.chat_name + ` (${message.chat_id})`, // Store original chat_id in name
                 cabinet_name: message.cabinet_name,

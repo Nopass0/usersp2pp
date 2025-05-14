@@ -89,9 +89,13 @@ export async function processAndSaveMessages() {
           },
         });
 
-        // Save the message to database
+        // Extract message ID or use a generated ID
+        const messageId = message.message_id || BigInt(Date.now() + Math.floor(Math.random() * 1000000));
+
+        // Save the message to database with explicit ID
         const savedNotification = await prisma.cabinetNotification.create({
           data: {
+            id: BigInt(messageId),
             chat_id: message.chat_id,
             chat_name: message.chat_name,
             cabinet_id: cabinetId,
@@ -99,6 +103,7 @@ export async function processAndSaveMessages() {
             message: message.message,
             timestamp: new Date(message.timestamp * 1000),
             cabinetId: cabinet?.id, // Link to our cabinet if found
+            message_id_str: message.message_id?.toString() || `gen_${Date.now()}`
           },
         });
 

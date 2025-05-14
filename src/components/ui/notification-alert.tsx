@@ -9,7 +9,7 @@ import { api } from "~/trpc/react";
 export function NotificationAlert() {
   const [showAlert, setShowAlert] = useState(false);
   const [notification, setNotification] = useState<{
-    id: number;
+    id: number | bigint;
     message: string;
     cabinet_name: string;
     cabinet_id: string;
@@ -26,7 +26,7 @@ export function NotificationAlert() {
   // Handle close and mark as read
   const handleClose = () => {
     if (notification) {
-      markAsRead.mutate({ id: notification.id });
+      markAsRead.mutate({ id: BigInt(notification.id) });
     }
     setShowAlert(false);
   };

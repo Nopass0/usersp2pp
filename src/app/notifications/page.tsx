@@ -156,10 +156,10 @@ export default function NotificationsPage() {
                     <>
                       <Separator className="my-3" />
                       <div className="flex justify-end">
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          onClick={() => markAsRead.mutate({ id: notification.id })}
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => markAsRead.mutate({ id: BigInt(notification.id) })}
                           disabled={markAsRead.isPending}
                         >
                           Прочитано

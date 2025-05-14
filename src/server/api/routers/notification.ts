@@ -120,7 +120,7 @@ export const notificationRouter = createTRPCRouter({
 
   // Mark notification as read
   markAsRead: protectedProcedure
-    .input(z.object({ id: z.number() }))
+    .input(z.object({ id: z.number().or(z.bigint()).or(z.string().transform(val => BigInt(val))) }))
     .mutation(async ({ ctx, input }) => {
       try {
         try {

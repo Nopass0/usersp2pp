@@ -118,8 +118,8 @@ export default function NotificationBell() {
     toast.info("Переподключение к серверу уведомлений...");
   };
   
-  const handleMarkAsRead = (id: number) => {
-    markAsRead.mutate({ id });
+  const handleMarkAsRead = (id: number | bigint) => {
+    markAsRead.mutate({ id: BigInt(id) });
   };
   
   const handleMarkAllAsRead = () => {
