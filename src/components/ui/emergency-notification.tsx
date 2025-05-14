@@ -19,6 +19,14 @@ import { api } from "~/trpc/react";
 import { useRouter } from "next/navigation";
 
 export function EmergencyNotification() {
+  // TEMPORARILY DISABLED - returning null to prevent showing emergency notifications
+  return null;
+}
+
+/* 
+  ORIGINAL IMPLEMENTATION - Commented out for future reference
+  
+export function EmergencyNotification() {
   const router = useRouter();
   const [showAlert, setShowAlert] = useState(false);
   const [notification, setNotification] = useState<{
@@ -51,10 +59,10 @@ export function EmergencyNotification() {
         // Even if marking as read fails, still hide the notification
       }
     }
-
+    
     // Always hide the banner
     setShowAlert(false);
-
+    
     // Store in localStorage that this notification has been seen
     if (notification) {
       try {
@@ -83,7 +91,7 @@ export function EmergencyNotification() {
       try {
         // Get dismissed notifications from localStorage
         const dismissed = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
-
+        
         // Find the first notification that hasn't been dismissed
         for (const notif of notifications) {
           // Check if this notification has been dismissed
@@ -94,12 +102,12 @@ export function EmergencyNotification() {
             return;
           }
         }
-
+        
         // If we got here, all notifications have been dismissed
         setShowAlert(false);
       } catch (e) {
         console.error("Error checking dismissed notifications:", e);
-
+        
         // Fallback to original behavior
         const latest = notifications[0];
         setNotification(latest);
@@ -121,7 +129,7 @@ export function EmergencyNotification() {
     if (pcBeepEnabled) {
       // Try with data URI technique first (more reliable in browsers)
       try {
-        const audio = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Cc+CDv/7xA4Tvh9Rz/y8QADBwMWgQAZG/ILNAARQ4GLTcDeIIIhxGOBAuD7hOfBB3/94gcJ3w+o5/5eIAIAAAVwWgQAVQ2ORaIQwEMAJiDg95G4nQL7mQVWI6GwRcfsZAcsKkJvxgxEjzFUgfHoSQ9Qq7KNwqHwuB13MA4a1q/DmBrHgPcmjiGoh//EwC5nGPEmS4RcfkVKOhJf+WOgoxJclFz3kgn//dBA+ya1GhurNn8zb//9NNutNuhz31f////9vt///z+IdAEAAAK4LQIAKobHItEIYCGAExBwe8jcToF9zIKrEdDYIuP2MgOWFSE34wYiR5iqQPj0JIeoVdlG4VD4XA67mAcNa1fhzA1jwHuTRxDUQ//iYBczjHiTJcIuPyKlHQkv/LHQUYkuSi57yQT//uggfZNajQ3Vmz+Zt//+mm3Wm3Q576v////+32///5/EOgAAADVghQAAAAA//uQZAUAB1WI0PZugAAAAAoQwAAAEk3nRd2qAAAAACiDgAAAAAAABCqEEQRLCgwpBGMlJkIz8jKhGvj4k6jzRnqasNKIeoh5gI7BJaC1A1AoNBjJgbyApVS4IDlZgDU5WUAxEKDNmmALHzZp0Fkz1FMTmGFl1FMEyodIavcCAUHDWrKAIA4aa2oCgILEBupZgHvAhEBcZ6joQBxS76AgccrFlczBvKLC0QI2cBoCFvfTDAo7eoOQInqDPBtvrDEZBNYN5xwNwxQRfw8ZQ5wQVLvO8OYU+mHvFLlDh05Mdg7BT6YrRPpCBznMB2r//xKJjyyOh+cImr2/4doscwD6neZjuZR4AgAABYAAAABy1xcdQtxYBYYZdifkUDgzzXaXn98Z0oi9ILU5mBjFANmRwlVJ3/6jYDAmxaiDG3/6xjQQCCKkRb/6kg/wW+kSJ5//rLobkLSiKmqP/0ikJuDaSaSf/6JiLYLEYnW/+kXg1WRVJL/9EmQ1YZIsv/6Qzwy5qk7/+tEU0nkls3/zIUMPKNX/6yZLf+kFgAfgGyLFAUwY//uQZAUABcd5UiNPVXAAAApAAAAAE0VZQKw9ISAAACgAAAAAVQIygIElVrFkBS+Jhi+EAuu+lKAkYUEIsmEAEoMeDmCETMvfSHTGkF5RWH7kz/ESHWPAq/kcCRhqBtMdokPdM7vil7RG98A2sc7zO6ZvTdM7pmOUAZTnJW+NXxqmd41dqJ6mLTXxrPpnV8AvadNvGGcnhFd/djf3kub/xmN8P/tqfEAAAAASUVORK5CYII=");
+        const audio = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Cc+CDv/7xA4Tvh9Rz/y8QADBwMWgQAZG/ILNAARQ4GLTcDeIIIhxGOBAuD7hOfBB3/94gcJ3w+o5/5eIAIAAAVwWgQAVQ2ORaIQwEMAJiDg95G4nQL7mQVWI6GwRcfsZAcsKkJvxgxEjzFUgfHoSQ9Qq7KNwqHwuB13MA4a1q/DmBrHgPcmjiGoh//EwC5nGPEmS4RcfkVKOhJf+WOgoxJclFz3kgn//dBA+ya1GhurNn8zb//9NNutNuhz31f////9vt///z+IdAEAAAK4LQIAKobHItEIYCGAExBwe8jcToF9zIKrEdDYIuP2MgOWFSE34wYiR5iqQPj0JIeoVdlG4VD4XA67mAcNa1fhzA1jwHuTRxDUQ//iYBczjHiTJcIuPyKlHQkv/LHQUYkuSi57yQT//uggfZNajQ3Vmz+Zt//+mm3Wm3Q576v////+32///5/EOgAAADVghQAAAAA==");
         audio.play().catch(() => {});
       } catch (e) {
         // Fallback to console.log approach
@@ -214,7 +222,6 @@ export function EmergencyNotification() {
       <div className="bg-red-600 text-white p-6 rounded-lg w-full max-w-2xl mx-4 shadow-2xl border-4 border-yellow-300">
         <div className="flex justify-between items-center mb-4">
           <div className="flex-1 text-center relative">
-            {/* Flashing lightbulbs */}
             <div className="absolute -top-7 -left-7">
               <Lightbulb className="h-14 w-14 text-yellow-300 animate-pulse" />
             </div>
@@ -263,3 +270,4 @@ export function EmergencyNotification() {
     </div>
   );
 }
+*/
