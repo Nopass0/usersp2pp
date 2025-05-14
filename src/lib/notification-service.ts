@@ -207,8 +207,13 @@ export async function fetchAndProcessMessages() {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
     try {
-      // Use the API URL as-is to support HTTP for servers without HTTPS
-      const response = await fetch(`${apiUrl}/messages/recent?hours=${hours}`, {
+      // Use the proxy URL for HTTP requests
+      const useProxy = apiUrl.startsWith('http://');
+      const url = useProxy
+        ? `/api/proxy/messages/recent?hours=${hours}`
+        : `${apiUrl}/messages/recent?hours=${hours}`;
+
+      const response = await fetch(url, {
         method: "GET",
         headers: {
           "accept": "application/json",

@@ -9,7 +9,7 @@ const config = {
     eslint: {
         ignoreDuringBuilds: true,
     },
-    // Allow mixed content for local development (not recommended for production)
+    // Unrestricted Content Security Policy to allow all connections
     async headers() {
         return [
             {
@@ -17,9 +17,18 @@ const config = {
                 headers: [
                     {
                         key: 'Content-Security-Policy',
-                        value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http: https: ws:;"
+                        value: "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';"
                     }
                 ]
+            }
+        ];
+    },
+    // Allow cross-origin requests via proxy
+    async rewrites() {
+        return [
+            {
+                source: '/api/proxy/:path*',
+                destination: 'http://192.168.1.106:8000/:path*'
             }
         ];
     }
