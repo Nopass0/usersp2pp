@@ -36,19 +36,39 @@ function formatDate(timestamp: number): string {
 }
 
 export default function NotificationBell() {
-  const { data: unreadCount, isLoading: countLoading, error: countError, refetch: refetchCount } = 
+  const { data: unreadCount, isLoading: countLoading, error: countError, refetch: refetchCount } =
     api.notification.getUnreadCount.useQuery(undefined, {
       refetchInterval: 30000, // Refetch every 30 seconds
       retry: 3,
       retryDelay: 1000,
     });
-  
-  const { 
-    data: unreadNotifications, 
+
+  // Get unread cancellations count
+  const { data: unreadCancellationsCount, isLoading: cancellationsCountLoading, error: cancellationsCountError, refetch: refetchCancellationsCount } =
+    api.notification.getUnreadCancellationsCount.useQuery(undefined, {
+      refetchInterval: 30000, // Refetch every 30 seconds
+      retry: 3,
+      retryDelay: 1000,
+    });
+
+  const {
+    data: unreadNotifications,
     isLoading: notificationsLoading,
     error: notificationsError,
     refetch: refetchNotifications
   } = api.notification.getUnreadNotifications.useQuery(undefined, {
+    refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 3,
+    retryDelay: 1000,
+  });
+
+  // Get unread cancellations
+  const {
+    data: unreadCancellations,
+    isLoading: cancellationsLoading,
+    error: cancellationsError,
+    refetch: refetchCancellations
+  } = api.notification.getUnreadCancellations.useQuery(undefined, {
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: 3,
     retryDelay: 1000,
@@ -60,12 +80,29 @@ export default function NotificationBell() {
       refetchNotifications();
     },
   });
-  
+
+  // Add markCancellationAsRead mutation
+  const markCancellationAsRead = api.notification.markCancellationAsRead.useMutation({
+    onSuccess: () => {
+      refetchCancellationsCount();
+      refetchCancellations();
+    },
+  });
+
   const markAllAsRead = api.notification.markAllAsRead.useMutation({
     onSuccess: () => {
       refetchCount();
       refetchNotifications();
       toast.success("Все уведомления прочитаны");
+    },
+  });
+
+  // Add markAllCancellationsAsRead mutation
+  const markAllCancellationsAsRead = api.notification.markAllCancellationsAsRead.useMutation({
+    onSuccess: () => {
+      refetchCancellationsCount();
+      refetchCancellations();
+      toast.success("Все уведомления об отменах прочитаны");
     },
   });
   
@@ -134,9 +171,17 @@ export default function NotificationBell() {
   const handleMarkAsRead = (id: number | bigint) => {
     markAsRead.mutate({ id: BigInt(id) });
   };
-  
+
+  const handleMarkCancellationAsRead = (id: number) => {
+    markCancellationAsRead.mutate({ id });
+  };
+
   const handleMarkAllAsRead = () => {
     markAllAsRead.mutate();
+  };
+
+  const handleMarkAllCancellationsAsRead = () => {
+    markAllCancellationsAsRead.mutate();
   };
 
   // Toggle sound settings
@@ -171,11 +216,16 @@ export default function NotificationBell() {
   };
   
   // Determine if there's any error to show
-  const hasError = Boolean(storeError || countError || notificationsError);
-  const isLoading = countLoading || notificationsLoading;
-  
-  // Show notification badge if we have unread notifications
-  const showNotification = unreadCount && unreadCount.count > 0;
+  const hasError = Boolean(storeError || countError || notificationsError || cancellationsError || cancellationsCountError);
+  const isLoading = countLoading || notificationsLoading || cancellationsLoading || cancellationsCountLoading;
+
+  // Calculate total unread count (notifications + cancellations)
+  const notificationsCount = unreadCount?.count || 0;
+  const cancellationsCount = unreadCancellationsCount?.count || 0;
+  const totalUnreadCount = notificationsCount + cancellationsCount;
+
+  // Show notification badge if we have unread notifications or cancellations
+  const showNotification = totalUnreadCount > 0;
   
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -189,11 +239,11 @@ export default function NotificationBell() {
             <BellIcon className="h-5 w-5" />
           )}
           {showNotification && !hasError && (
-            <Badge 
-              variant="destructive" 
+            <Badge
+              variant="destructive"
               className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs min-w-5 h-5 flex items-center justify-center"
             >
-              {unreadCount.count > 99 ? "99+" : unreadCount.count}
+              {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
             </Badge>
           )}
         </Button>
@@ -202,15 +252,30 @@ export default function NotificationBell() {
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Уведомления</span>
           {showNotification && !hasError && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-              onClick={handleMarkAllAsRead}
-              disabled={markAllAsRead.isPending}
-            >
-              Прочитать все
-            </Button>
+            <div className="flex gap-1">
+              {notificationsCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                  onClick={handleMarkAllAsRead}
+                  disabled={markAllAsRead.isPending}
+                >
+                  Прочитать уведомления
+                </Button>
+              )}
+              {cancellationsCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                  onClick={handleMarkAllCancellationsAsRead}
+                  disabled={markAllCancellationsAsRead.isPending}
+                >
+                  Прочитать отмены
+                </Button>
+              )}
+            </div>
           )}
           {hasError && (
             <Button
@@ -258,16 +323,17 @@ export default function NotificationBell() {
           )}
           
           {/* Empty state */}
-          {!isLoading && !hasError && (!unreadNotifications || unreadNotifications.length === 0) && (
+          {!isLoading && !hasError && (!unreadNotifications || unreadNotifications.length === 0) && (!unreadCancellations || unreadCancellations.length === 0) && (
             <div className="p-4 text-center">
               <InfoIcon className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
               <p className="text-muted-foreground">Нет новых уведомлений</p>
             </div>
           )}
-          
+
           {/* Notifications list */}
           {!hasError && unreadNotifications && unreadNotifications.length > 0 && (
             <div className="space-y-2 p-2">
+              <div className="px-2 py-1 text-sm font-medium">Уведомления от кабинетов</div>
               {unreadNotifications.map((notification) => (
                 <Card
                   key={notification.id}
@@ -285,6 +351,33 @@ export default function NotificationBell() {
                     </div>
                     <p className="text-sm">{notification.message.replace(/\[.*?\] Автоматическое оповещение: /g, '')}</p>
                     <p className="text-xs text-muted-foreground">Чат: {notification.chat_name}</p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Cancellations list */}
+          {!hasError && unreadCancellations && unreadCancellations.length > 0 && (
+            <div className="space-y-2 p-2">
+              <div className="px-2 py-1 text-sm font-medium text-destructive">Уведомления об отменах</div>
+              {unreadCancellations.map((cancellation) => (
+                <Card
+                  key={cancellation.id}
+                  className="p-3 cursor-pointer hover:bg-secondary/50 transition-colors border-destructive/30"
+                  onClick={() => handleMarkCancellationAsRead(cancellation.id)}
+                >
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm text-destructive">
+                        Отмена
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(cancellation.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-sm">{cancellation.message}</p>
+                    <p className="text-xs text-muted-foreground">Чат: {cancellation.chatName}</p>
                   </div>
                 </Card>
               ))}
