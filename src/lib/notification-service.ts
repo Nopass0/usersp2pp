@@ -182,12 +182,21 @@ export const useNotificationStore = create<NotificationState>()(
           if (!get().polling) return;
           
           try {
-            await fetchAndProcessMessages();
-            // Also poll for cancellations
-            await fetchAndProcessCancellations();
-          } catch (error) {
-            console.error("Error polling for messages:", error);
-            set({ error: error instanceof Error ? error.message : "Unknown error polling messages" });
+            // Fetch messages and cancellations separately, so errors in one don't stop the other
+            try {
+              await fetchAndProcessMessages();
+            } catch (msgError) {
+              console.error("Error polling for messages:", msgError);
+              set({ error: msgError instanceof Error ? msgError.message : "Unknown error polling messages" });
+            }
+
+            // Poll for cancellations separately
+            try {
+              await fetchAndProcessCancellations();
+            } catch (cancelError) {
+              console.error("Error polling for cancellations:", cancelError);
+              // Don't set error state for cancellations to avoid disrupting normal notifications
+            }
           } finally {
             // Schedule next poll
             if (get().polling) {
@@ -365,9 +374,9 @@ export async function fetchAndProcessMessages() {
     // Ensure URL has a protocol
     let directUrl = apiUrl;
 
-    // Add protocol if missing
+    // Add protocol if missing - use HTTP as required, not HTTPS
     if (!directUrl.startsWith('http://') && !directUrl.startsWith('https://')) {
-      directUrl = `https://${directUrl}`;
+      directUrl = `http://${directUrl}`;
     }
 
     // Hard-code the correct IP address (not used - we use proxy instead)
@@ -438,23 +447,15 @@ async function saveMessagesToDatabase(messages: CabinetMessage[]) {
 
 // Function to fetch cancellation notifications from API
 export async function fetchAndProcessCancellations() {
-  const { apiKey, apiUrl, lastCancellationChecked, addCancellations, setError } = useNotificationStore.getState();
+  const { apiKey, lastCancellationChecked, addCancellations, setError } = useNotificationStore.getState();
 
-  if (!apiKey || !apiUrl) {
+  if (!apiKey) {
     const errorMsg = "API configuration missing";
     console.error(errorMsg);
     setError(errorMsg);
     return;
   }
 
-  // Handle missing/improper protocol in URL
-  if (!/^https?:\/\//i.test(apiUrl)) {
-    const errorMsg = "API URL must include protocol (https:// or http://)";
-    console.error(errorMsg);
-    setError(errorMsg);
-    return;
-  }
-  
   try {
     // Determine time period for recent messages (use last 24 hours if no lastCancellationChecked)
     const hours = lastCancellationChecked ?
@@ -465,7 +466,7 @@ export async function fetchAndProcessCancellations() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    // Use the proxy for cancellation notifications
+    // Use the proxy for cancellation notifications (always using HTTP)
     const proxyUrl = `/api/proxy/cancellations/recent?hours=${hours}`;
 
     console.log("Fetching cancellations using proxy URL:", proxyUrl);
@@ -487,11 +488,20 @@ export async function fetchAndProcessCancellations() {
 
     const data = await response.json();
 
+    // Process cancellation messages - these have a different format than regular notifications
     if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
-      addCancellations(data.messages);
+      // Check that messages contain the text "невозможно обработать" which indicates cancellation
+      const cancellationMessages = data.messages.filter(
+        msg => typeof msg.message === 'string' && msg.message.includes('невозможно обработать')
+      );
 
-      // Save to database via API endpoint
-      await saveCancellationsToDatabase(data.messages);
+      if (cancellationMessages.length > 0) {
+        // Add to store and show notification
+        addCancellations(cancellationMessages);
+
+        // Save to database via API endpoint
+        await saveCancellationsToDatabase(cancellationMessages);
+      }
     }
 
     // Clear any previous errors on successful fetch
@@ -500,7 +510,7 @@ export async function fetchAndProcessCancellations() {
     const errorMsg = error instanceof Error ? error.message : "Unknown error fetching cancellations";
     console.error("Error fetching cancellations:", errorMsg);
     setError(errorMsg);
-    throw error;
+    // Don't throw the error, just log it to avoid breaking the polling loop
   }
 }
 

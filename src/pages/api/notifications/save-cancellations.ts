@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '~/server/db';
+import { db as prisma } from '~/server/db';
 
 type CancellationMessage = {
   chat_id: number;
