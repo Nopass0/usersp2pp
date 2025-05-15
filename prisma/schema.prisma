@@ -786,6 +786,23 @@ model CabinetNotification {
   @@index([message_id_str])
 }
 
+model Cancellation {
+  id        Int      @id @default(autoincrement())
+  chatId    BigInt
+  chatName  String
+  message   String
+  timestamp DateTime
+  messageId String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([chatId, messageId])
+  @@index([chatId])
+  @@index([isRead])
+  @@index([timestamp])
+}
+
 enum PeriodType {
   TWICE_MONTH
   THRICE_MONTH

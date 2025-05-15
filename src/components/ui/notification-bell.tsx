@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BellIcon, BellRingIcon, AlertCircleIcon, InfoIcon, RefreshCwIcon, Volume2Icon, Speaker } from "lucide-react";
+import { BellIcon, BellRingIcon, AlertCircleIcon, InfoIcon, RefreshCwIcon, Volume2Icon, Speaker, DesktopIcon } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Switch } from "~/components/ui/switch";
@@ -18,7 +18,13 @@ import {
   DropdownMenuPortal,
 } from "~/components/ui/dropdown-menu";
 import { api } from "~/trpc/react";
-import { useNotificationStore, fetchAndProcessMessages } from "~/lib/notification-service";
+import {
+  useNotificationStore,
+  fetchAndProcessMessages,
+  areNotificationsSupported,
+  hasNotificationPermission,
+  requestNotificationPermission
+} from "~/lib/notification-service";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Card } from "~/components/ui/card";
 import { Alert, AlertTitle, AlertDescription } from "~/components/ui/alert";
@@ -67,7 +73,14 @@ export default function NotificationBell() {
   
   // Get notification store state
   const notificationStore = useNotificationStore();
-  const { error: storeError, soundEnabled, pcBeepEnabled, apiUrl, setApiConfig } = notificationStore;
+  const {
+    error: storeError,
+    soundEnabled,
+    pcBeepEnabled,
+    desktopNotificationsEnabled,
+    apiUrl,
+    setApiConfig
+  } = notificationStore;
 
   // No longer forcing HTTPS since the API server doesn't support it
   // We'll leave the API URL as-is, whether HTTP or HTTPS
@@ -133,6 +146,28 @@ export default function NotificationBell() {
 
   const handleTogglePcBeep = () => {
     notificationStore.setPcBeepEnabled(!pcBeepEnabled);
+  };
+
+  // Handle toggle desktop notifications
+  const handleToggleDesktopNotifications = async () => {
+    // If we're enabling and don't have permission yet, request it
+    if (!desktopNotificationsEnabled && areNotificationsSupported() && !hasNotificationPermission()) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        toast.error("Разрешение на отображение уведомлений не получено");
+        return; // Don't enable if permission was denied
+      }
+    }
+
+    // Toggle the setting
+    notificationStore.setDesktopNotificationsEnabled(!desktopNotificationsEnabled);
+
+    // Show status toast
+    if (!desktopNotificationsEnabled) {
+      toast.success("Уведомления рабочего стола включены");
+    } else {
+      toast.info("Уведомления рабочего стола отключены");
+    }
   };
   
   // Determine if there's any error to show
@@ -280,9 +315,26 @@ export default function NotificationBell() {
                   <Switch checked={pcBeepEnabled} onCheckedChange={handleTogglePcBeep} />
                 </div>
 
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DesktopIcon className={`h-4 w-4 ${desktopNotificationsEnabled ? "" : "opacity-50"}`} />
+                    <span className="text-sm">Уведомления на рабочем столе</span>
+                  </div>
+                  <Switch
+                    checked={desktopNotificationsEnabled}
+                    onCheckedChange={handleToggleDesktopNotifications}
+                    disabled={!areNotificationsSupported()}
+                  />
+                </div>
+
                 <p className="text-xs text-muted-foreground pt-1">
                   Системный динамик (пищалка) звучит даже если нет колонок
                 </p>
+                {!areNotificationsSupported() && (
+                  <p className="text-xs text-destructive pt-1">
+                    Уведомления на рабочем столе не поддерживаются в вашем браузере
+                  </p>
+                )}
               </div>
             </DropdownMenuSubContent>
           </DropdownMenuPortal>

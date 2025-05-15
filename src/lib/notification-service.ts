@@ -13,6 +13,21 @@ export interface CabinetMessage {
   message_id: string | number; // Can be string or number
 }
 
+// Define types for Cancellation Message from API
+export interface CancellationMessage {
+  chat_id: number;
+  chat_name: string;
+  message: string;
+  timestamp: number;
+  message_id: string | number; // Can be string or number
+  isRead?: boolean;
+}
+
+// Check if browser notifications are supported
+export function areNotificationsSupported(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window;
+}
+
 // Global event to trigger notification display
 const AUTO_DISPLAY_EVENT = "notification:new-message";
 
@@ -24,6 +39,59 @@ export function triggerNotificationDisplay() {
     } catch (error) {
       console.error("Error triggering notification display event:", error);
     }
+  }
+}
+
+// Function to request notification permissions
+export async function requestNotificationPermission(): Promise<boolean> {
+  if (!areNotificationsSupported()) {
+    console.log("Browser notifications are not supported");
+    return false;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    return permission === "granted";
+  } catch (error) {
+    console.error("Error requesting notification permission:", error);
+    return false;
+  }
+}
+
+// Function to check if notification permission is granted
+export function hasNotificationPermission(): boolean {
+  if (!areNotificationsSupported()) return false;
+  return Notification.permission === "granted";
+}
+
+// Function to show a desktop notification
+export function showDesktopNotification(title: string, body: string, icon?: string) {
+  const { desktopNotificationsEnabled } = useNotificationStore.getState();
+  
+  // Check if desktop notifications are enabled in settings
+  if (!desktopNotificationsEnabled) return;
+  
+  // Check if notifications are supported and permission is granted
+  if (!areNotificationsSupported() || !hasNotificationPermission()) return;
+  
+  try {
+    const notification = new Notification(title, {
+      body: body,
+      icon: icon || "/favicon.ico",
+      tag: "notification-" + Date.now(), // Unique tag to prevent duplicates
+      requireInteraction: false, // Auto close after a while
+    });
+    
+    // Auto close after 5 seconds
+    setTimeout(() => notification.close(), 5000);
+    
+    // Handle click on notification
+    notification.onclick = function() {
+      window.focus(); // Focus on the window
+      notification.close();
+    };
+  } catch (error) {
+    console.error("Error showing desktop notification:", error);
   }
 }
 
@@ -51,9 +119,12 @@ interface NotificationState {
   polling: boolean;
   pollInterval: number;
   lastChecked: number | null;
+  lastCancellationChecked: number | null;
   notifications: CabinetMessage[];
+  cancellations: CancellationMessage[];
   soundEnabled: boolean;
   pcBeepEnabled: boolean; // Added PC beep option
+  desktopNotificationsEnabled: boolean; // Added desktop notifications option
   error: string | null;
 
   // Actions
@@ -63,8 +134,11 @@ interface NotificationState {
   setPollInterval: (interval: number) => void;
   setSoundEnabled: (enabled: boolean) => void;
   setPcBeepEnabled: (enabled: boolean) => void; // Toggle PC beep
+  setDesktopNotificationsEnabled: (enabled: boolean) => void; // Toggle desktop notifications
   clearNotifications: () => void;
+  clearCancellations: () => void;
   addNotifications: (notifications: CabinetMessage[]) => void;
+  addCancellations: (cancellations: CancellationMessage[]) => void;
   setError: (error: string | null) => void;
 }
 
@@ -77,9 +151,12 @@ export const useNotificationStore = create<NotificationState>()(
       polling: false,
       pollInterval: 5000, // 5 seconds default
       lastChecked: null,
+      lastCancellationChecked: null,
       notifications: [],
+      cancellations: [],
       soundEnabled: true,
       pcBeepEnabled: true, // PC beep enabled by default
+      desktopNotificationsEnabled: true, // Desktop notifications enabled by default
       error: null,
       
       setApiConfig: (apiKey, apiUrl) => set({ apiKey, apiUrl, error: null }),
@@ -106,6 +183,8 @@ export const useNotificationStore = create<NotificationState>()(
           
           try {
             await fetchAndProcessMessages();
+            // Also poll for cancellations
+            await fetchAndProcessCancellations();
           } catch (error) {
             console.error("Error polling for messages:", error);
             set({ error: error instanceof Error ? error.message : "Unknown error polling messages" });
@@ -128,8 +207,12 @@ export const useNotificationStore = create<NotificationState>()(
       setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
 
       setPcBeepEnabled: (enabled) => set({ pcBeepEnabled: enabled }),
+      
+      setDesktopNotificationsEnabled: (enabled) => set({ desktopNotificationsEnabled: enabled }),
 
       clearNotifications: () => set({ notifications: [] }),
+      
+      clearCancellations: () => set({ cancellations: [] }),
 
       setError: (error) => set({ error }),
       
@@ -150,7 +233,27 @@ export const useNotificationStore = create<NotificationState>()(
             if (state.soundEnabled) {
               playNotificationSound();
             }
-            
+
+            // Show desktop notification if enabled
+            if (state.desktopNotificationsEnabled && filteredNew.length > 0) {
+              // Create a notification for each new message (limit to max 3 to avoid spam)
+              const toShow = filteredNew.slice(0, 3);
+
+              toShow.forEach(msg => {
+                const title = `${msg.cabinet_name} (${msg.chat_name})`;
+                const body = msg.message.replace(/\[.*?\] Автоматическое оповещение: /g, '');
+                showDesktopNotification(title, body);
+              });
+
+              // If there are more than we showed, add a summary notification
+              if (filteredNew.length > 3) {
+                showDesktopNotification(
+                  "Новые уведомления",
+                  `Получено ${filteredNew.length} новых уведомлений`
+                );
+              }
+            }
+
             // Trigger notification display
             triggerNotificationDisplay();
           }
@@ -158,6 +261,56 @@ export const useNotificationStore = create<NotificationState>()(
           return {
             notifications: [...filteredNew, ...state.notifications],
             lastChecked: Date.now(),
+            error: null,
+          };
+        });
+      },
+      
+      addCancellations: (newCancellations) => {
+        set((state) => {
+          // Filter out duplicates based on message_id and chat_id together
+          const existingIds = new Set(
+            state.cancellations.map((n) => `${n.chat_id}-${n.message_id}`)
+          );
+
+          const filteredNew = newCancellations.filter(
+            (n) => !existingIds.has(`${n.chat_id}-${n.message_id}`)
+          );
+          
+          // If we have new cancellation notifications
+          if (filteredNew.length > 0) {
+            // Play sound if enabled
+            if (state.soundEnabled) {
+              playNotificationSound();
+            }
+            
+            // Show desktop notification if enabled
+            if (state.desktopNotificationsEnabled && filteredNew.length > 0) {
+              // Create a notification for each new cancellation (limit to max 3 to avoid spam)
+              const toShow = filteredNew.slice(0, 3);
+              
+              toShow.forEach(msg => {
+                const title = `Отмена: ${msg.chat_name}`;
+                const body = msg.message;
+                showDesktopNotification(title, body);
+              });
+              
+              // If there are more than we showed, add a summary notification
+              if (filteredNew.length > 3) {
+                showDesktopNotification(
+                  "Новые отмены",
+                  `Получено ${filteredNew.length} новых уведомлений об отмене`
+                );
+              }
+            }
+            
+            // Trigger notification display
+            triggerNotificationDisplay();
+          }
+          
+          return {
+            cancellations: [...filteredNew, ...state.cancellations],
+            lastCancellationChecked: Date.now(),
             error: null,
           };
         });
@@ -171,7 +324,9 @@ export const useNotificationStore = create<NotificationState>()(
         pollInterval: state.pollInterval,
         soundEnabled: state.soundEnabled,
         pcBeepEnabled: state.pcBeepEnabled,
+        desktopNotificationsEnabled: state.desktopNotificationsEnabled,
         lastChecked: state.lastChecked,
+        lastCancellationChecked: state.lastCancellationChecked,
         error: state.error,
       }),
     }
@@ -278,6 +433,95 @@ async function saveMessagesToDatabase(messages: CabinetMessage[]) {
     }
   } catch (error) {
     console.error("Error saving messages to database:", error);
+  }
+}
+
+// Function to fetch cancellation notifications from API
+export async function fetchAndProcessCancellations() {
+  const { apiKey, apiUrl, lastCancellationChecked, addCancellations, setError } = useNotificationStore.getState();
+
+  if (!apiKey || !apiUrl) {
+    const errorMsg = "API configuration missing";
+    console.error(errorMsg);
+    setError(errorMsg);
+    return;
+  }
+
+  // Handle missing/improper protocol in URL
+  if (!/^https?:\/\//i.test(apiUrl)) {
+    const errorMsg = "API URL must include protocol (https:// or http://)";
+    console.error(errorMsg);
+    setError(errorMsg);
+    return;
+  }
+  
+  try {
+    // Determine time period for recent messages (use last 24 hours if no lastCancellationChecked)
+    const hours = lastCancellationChecked ?
+      Math.max(1, Math.ceil((Date.now() - lastCancellationChecked) / (60 * 60 * 1000))) :
+      24; // Default to 24 hours for cancellations
+
+    // Set up request with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    // Use the proxy for cancellation notifications
+    const proxyUrl = `/api/proxy/cancellations/recent?hours=${hours}`;
+
+    console.log("Fetching cancellations using proxy URL:", proxyUrl);
+
+    const response = await fetch(proxyUrl, {
+      method: "GET",
+      headers: {
+        "accept": "application/json",
+        "X-API-Key": apiKey
+      },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch cancellations: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
+      addCancellations(data.messages);
+
+      // Save to database via API endpoint
+      await saveCancellationsToDatabase(data.messages);
+    }
+
+    // Clear any previous errors on successful fetch
+    setError(null);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error fetching cancellations";
+    console.error("Error fetching cancellations:", errorMsg);
+    setError(errorMsg);
+    throw error;
+  }
+}
+
+// Function to save cancellations to database
+async function saveCancellationsToDatabase(cancellations: CancellationMessage[]) {
+  try {
+    // Call the API endpoint to save cancellations
+    const response = await fetch('/api/notifications/save-cancellations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ cancellations }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error saving cancellations (${response.status}):`, errorText);
+    }
+  } catch (error) {
+    console.error("Error saving cancellations to database:", error);
   }
 }
 

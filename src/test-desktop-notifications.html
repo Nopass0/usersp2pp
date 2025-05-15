@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Desktop Notifications</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    button {
+      padding: 10px 15px;
+      margin: 10px 5px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .success { background-color: #dff0d8; color: #3c763d; }
+    .warning { background-color: #fcf8e3; color: #8a6d3b; }
+    .error { background-color: #f2dede; color: #a94442; }
+  </style>
+</head>
+<body>
+  <h1>Desktop Notification Tester</h1>
+  
+  <div>
+    <button id="checkSupport">Check Browser Support</button>
+    <button id="checkPermission">Check Permission</button>
+    <button id="requestPermission">Request Permission</button>
+    <button id="showNotification">Show Test Notification</button>
+  </div>
+  
+  <div id="status" class="status"></div>
+  
+  <script>
+    const statusEl = document.getElementById('status');
+    
+    // Check if browser supports notifications
+    document.getElementById('checkSupport').addEventListener('click', () => {
+      if ('Notification' in window) {
+        statusEl.className = 'status success';
+        statusEl.textContent = 'Desktop notifications are supported in this browser.';
+      } else {
+        statusEl.className = 'status error';
+        statusEl.textContent = 'This browser does not support desktop notifications.';
+      }
+    });
+    
+    // Check current permission status
+    document.getElementById('checkPermission').addEventListener('click', () => {
+      if (!('Notification' in window)) {
+        statusEl.className = 'status error';
+        statusEl.textContent = 'This browser does not support desktop notifications.';
+        return;
+      }
+      
+      const permission = Notification.permission;
+      if (permission === 'granted') {
+        statusEl.className = 'status success';
+        statusEl.textContent = 'Permission to show notifications has been granted.';
+      } else if (permission === 'denied') {
+        statusEl.className = 'status error';
+        statusEl.textContent = 'Permission to show notifications has been denied.';
+      } else {
+        statusEl.className = 'status warning';
+        statusEl.textContent = 'Permission has not been requested yet.';
+      }
+    });
+    
+    // Request permission
+    document.getElementById('requestPermission').addEventListener('click', async () => {
+      if (!('Notification' in window)) {
+        statusEl.className = 'status error';
+        statusEl.textContent = 'This browser does not support desktop notifications.';
+        return;
+      }
+      
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          statusEl.className = 'status success';
+          statusEl.textContent = 'Permission has been granted!';
+        } else {
+          statusEl.className = 'status error';
+          statusEl.textContent = `Permission denied: ${permission}`;
+        }
+      } catch (error) {
+        statusEl.className = 'status error';
+        statusEl.textContent = `Error requesting permission: ${error.message}`;
+      }
+    });
+    
+    // Show a test notification
+    document.getElementById('showNotification').addEventListener('click', () => {
+      if (!('Notification' in window)) {
+        statusEl.className = 'status error';
+        statusEl.textContent = 'This browser does not support desktop notifications.';
+        return;
+      }
+      
+      if (Notification.permission !== 'granted') {
+        statusEl.className = 'status warning';
+        statusEl.textContent = 'Please request permission first.';
+        return;
+      }
+      
+      try {
+        const notification = new Notification('Test Notification', {
+          body: 'This is a test notification from the notification system',
+          icon: '/favicon.ico'
+        });
+        
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+          statusEl.className = 'status success';
+          statusEl.textContent = 'Notification was clicked!';
+        };
+        
+        statusEl.className = 'status success';
+        statusEl.textContent = 'Test notification shown. It should close automatically after a few seconds.';
+      } catch (error) {
+        statusEl.className = 'status error';
+        statusEl.textContent = `Error showing notification: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html>

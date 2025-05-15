@@ -63,6 +63,36 @@ export const notificationRouter = createTRPCRouter({
     }
   }),
 
+  // Get all unread cancellations
+  getUnreadCancellations: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      // First check if the table exists by wrapping in a try-catch
+      try {
+        // Use the existing fields in the database
+        const cancellations = await ctx.db.cancellation.findMany({
+          where: {
+            isRead: false,
+          },
+          orderBy: {
+            timestamp: "desc",
+          },
+        });
+
+        // Just return the cancellations as is
+        return cancellations;
+      } catch (dbError) {
+        // If error is related to table not existing, return empty array instead of error
+        if (isTableNotExistError(dbError)) {
+          console.warn("Cancellation table may not exist yet, returning empty array");
+          return [];
+        }
+        throw dbError; // Re-throw if it's another kind of error
+      }
+    } catch (error) {
+      handleDatabaseError(error, "Failed to fetch cancellations");
+    }
+  }),
+
   // Get all notifications for the current user (with pagination)
   getAllNotifications: protectedProcedure
     .input(
@@ -187,6 +217,67 @@ export const notificationRouter = createTRPCRouter({
     }
   }),
 
+  // Mark cancellation as read
+  markCancellationAsRead: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        try {
+          const cancellation = await ctx.db.cancellation.findUnique({
+            where: { id: input.id },
+          });
+
+          if (!cancellation) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Cancellation notification not found",
+            });
+          }
+
+          await ctx.db.cancellation.update({
+            where: { id: input.id },
+            data: { isRead: true },
+          });
+
+          return { success: true };
+        } catch (dbError) {
+          if (isTableNotExistError(dbError)) {
+            return { success: false, reason: "Cancellation system is initializing" };
+          }
+          throw dbError;
+        }
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+
+        handleDatabaseError(error, "Failed to mark cancellation as read");
+      }
+    }),
+
+  // Mark all cancellations as read
+  markAllCancellationsAsRead: protectedProcedure.mutation(async ({ ctx }) => {
+    try {
+      try {
+        await ctx.db.cancellation.updateMany({
+          where: {
+            isRead: false,
+          },
+          data: {
+            isRead: true,
+          },
+        });
+
+        return { success: true };
+      } catch (dbError) {
+        if (isTableNotExistError(dbError)) {
+          return { success: true }; // Pretend success if table doesn't exist
+        }
+        throw dbError;
+      }
+    } catch (error) {
+      handleDatabaseError(error, "Failed to mark all cancellations as read");
+    }
+  }),
+
   // Get new notifications count
   getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
     try {
@@ -207,6 +298,28 @@ export const notificationRouter = createTRPCRouter({
       }
     } catch (error) {
       handleDatabaseError(error, "Failed to fetch notification count");
+    }
+  }),
+
+  // Get cancellations count
+  getUnreadCancellationsCount: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      try {
+        const count = await ctx.db.cancellation.count({
+          where: {
+            isRead: false,
+          },
+        });
+
+        return { count };
+      } catch (dbError) {
+        if (isTableNotExistError(dbError)) {
+          return { count: 0 }; // Return 0 if table doesn't exist
+        }
+        throw dbError;
+      }
+    } catch (error) {
+      handleDatabaseError(error, "Failed to fetch cancellations count");
     }
   }),
 });
