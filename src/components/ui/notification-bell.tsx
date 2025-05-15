@@ -220,8 +220,8 @@ export default function NotificationBell() {
   const isLoading = countLoading || notificationsLoading || cancellationsLoading || cancellationsCountLoading;
 
   // Calculate total unread count (notifications + cancellations)
-  const notificationsCount = unreadCount?.count || 0;
-  const cancellationsCount = unreadCancellationsCount?.count || 0;
+  const notificationsCount = (unreadCount && typeof unreadCount.count === 'number') ? unreadCount.count : 0;
+  const cancellationsCount = (unreadCancellationsCount && typeof unreadCancellationsCount.count === 'number') ? unreadCancellationsCount.count : 0;
   const totalUnreadCount = notificationsCount + cancellationsCount;
 
   // Show notification badge if we have unread notifications or cancellations
@@ -331,56 +331,75 @@ export default function NotificationBell() {
           )}
 
           {/* Notifications list */}
-          {!hasError && unreadNotifications && unreadNotifications.length > 0 && (
+          {!hasError && unreadNotifications && Array.isArray(unreadNotifications) && unreadNotifications.length > 0 && (
             <div className="space-y-2 p-2">
               <div className="px-2 py-1 text-sm font-medium">Уведомления от кабинетов</div>
-              {unreadNotifications.map((notification) => (
-                <Card
-                  key={notification.id}
-                  className="p-3 cursor-pointer hover:bg-secondary/50 transition-colors"
-                  onClick={() => handleMarkAsRead(notification.id)}
-                >
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
-                        {notification.cabinet_name}#{notification.cabinet_id}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(notification.timestamp).toLocaleString()}
-                      </span>
+              {unreadNotifications.map((notification) => {
+                if (!notification || typeof notification !== 'object') {
+                  return null; // Skip invalid notification objects
+                }
+                return (
+                  <Card
+                    key={notification.id}
+                    className="p-3 cursor-pointer hover:bg-secondary/50 transition-colors"
+                    onClick={() => handleMarkAsRead(notification.id)}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">
+                          {notification.cabinet_name || ''}
+                          {notification.cabinet_id ? `#${notification.cabinet_id}` : ''}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {notification.timestamp
+                            ? new Date(notification.timestamp).toLocaleString()
+                            : '-'}
+                        </span>
+                      </div>
+                      <p className="text-sm">
+                        {notification.message
+                          ? notification.message.replace(/\[.*?\] Автоматическое оповещение: /g, '')
+                          : ''}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Чат: {notification.chat_name || ''}</p>
                     </div>
-                    <p className="text-sm">{notification.message.replace(/\[.*?\] Автоматическое оповещение: /g, '')}</p>
-                    <p className="text-xs text-muted-foreground">Чат: {notification.chat_name}</p>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           )}
 
           {/* Cancellations list */}
-          {!hasError && unreadCancellations && unreadCancellations.length > 0 && (
+          {!hasError && unreadCancellations && Array.isArray(unreadCancellations) && unreadCancellations.length > 0 && (
             <div className="space-y-2 p-2">
               <div className="px-2 py-1 text-sm font-medium text-destructive">Уведомления об отменах</div>
-              {unreadCancellations.map((cancellation) => (
-                <Card
-                  key={cancellation.id}
-                  className="p-3 cursor-pointer hover:bg-secondary/50 transition-colors border-destructive/30"
-                  onClick={() => handleMarkCancellationAsRead(cancellation.id)}
-                >
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm text-destructive">
-                        Отмена
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(cancellation.timestamp).toLocaleString()}
-                      </span>
+              {unreadCancellations.map((cancellation) => {
+                if (!cancellation || typeof cancellation !== 'object') {
+                  return null; // Skip invalid cancellation objects
+                }
+                return (
+                  <Card
+                    key={cancellation.id}
+                    className="p-3 cursor-pointer hover:bg-secondary/50 transition-colors border-destructive/30"
+                    onClick={() => handleMarkCancellationAsRead(cancellation.id)}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm text-destructive">
+                          Отмена
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {cancellation.timestamp
+                            ? new Date(cancellation.timestamp).toLocaleString()
+                            : '-'}
+                        </span>
+                      </div>
+                      <p className="text-sm">{cancellation.message || ''}</p>
+                      <p className="text-xs text-muted-foreground">Чат: {cancellation.chatName || ''}</p>
                     </div>
-                    <p className="text-sm">{cancellation.message}</p>
-                    <p className="text-xs text-muted-foreground">Чат: {cancellation.chatName}</p>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </ScrollArea>

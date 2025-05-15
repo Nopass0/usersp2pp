@@ -4,7 +4,13 @@ import { useEffect, useRef } from "react";
 import {
   useNotificationStore,
   fetchAndProcessMessages,
+  requestNotificationPermission,
 } from "~/lib/notification-service";
+import {
+  registerServiceWorker,
+  setupServiceWorker,
+  scheduleBackgroundChecks
+} from "~/lib/service-worker-handler";
 
 interface NotificationWrapperProps {
   children: React.ReactNode;
@@ -13,6 +19,7 @@ interface NotificationWrapperProps {
 export function NotificationWrapper({ children }: NotificationWrapperProps) {
   // Use a ref to track initialization instead of state to avoid re-renders
   const initializedRef = useRef(false);
+  const serviceWorkerRegisteredRef = useRef(false);
 
   useEffect(() => {
     // Run this only once
@@ -42,6 +49,49 @@ export function NotificationWrapper({ children }: NotificationWrapperProps) {
           console.warn("Initial notification fetch failed:", err);
         });
       }, 1000);
+
+      // Register service worker
+      if (!serviceWorkerRegisteredRef.current && 'serviceWorker' in navigator) {
+        serviceWorkerRegisteredRef.current = true;
+
+        // Use a listener for first user interaction to register service worker
+        const registerServiceWorkerAfterInteraction = async () => {
+          try {
+            // Request notification permission first
+            await requestNotificationPermission();
+
+            // Register service worker
+            const registration = await registerServiceWorker();
+
+            if (registration) {
+              // Set up service worker with API key
+              await setupServiceWorker(registration);
+
+              // Schedule background checks every 5 minutes
+              scheduleBackgroundChecks(5);
+
+              console.log('Service worker registered and background checks scheduled');
+            }
+          } catch (error) {
+            console.error('Failed to register service worker:', error);
+          }
+        };
+
+        // Add interaction event listeners
+        const interactionEvents = ['click', 'touchstart', 'keydown'];
+        const handleInteraction = () => {
+          registerServiceWorkerAfterInteraction();
+          // Remove event listeners once registered
+          interactionEvents.forEach(event => {
+            window.removeEventListener(event, handleInteraction);
+          });
+        };
+
+        // Set up event listeners
+        interactionEvents.forEach(event => {
+          window.addEventListener(event, handleInteraction);
+        });
+      }
 
       // Clean up timeouts on unmount
       return () => {

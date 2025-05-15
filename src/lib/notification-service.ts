@@ -25,7 +25,9 @@ export interface CancellationMessage {
 
 // Check if browser notifications are supported
 export function areNotificationsSupported(): boolean {
-  return typeof window !== 'undefined' && 'Notification' in window;
+  return typeof window !== 'undefined' &&
+         'Notification' in window &&
+         'serviceWorker' in navigator;
 }
 
 // Global event to trigger notification display
@@ -67,31 +69,62 @@ export function hasNotificationPermission(): boolean {
 // Function to show a desktop notification
 export function showDesktopNotification(title: string, body: string, icon?: string) {
   const { desktopNotificationsEnabled } = useNotificationStore.getState();
-  
+
   // Check if desktop notifications are enabled in settings
   if (!desktopNotificationsEnabled) return;
-  
+
   // Check if notifications are supported and permission is granted
   if (!areNotificationsSupported() || !hasNotificationPermission()) return;
-  
+
   try {
-    const notification = new Notification(title, {
+    // Create notification options
+    const notificationOptions = {
       body: body,
       icon: icon || "/favicon.ico",
       tag: "notification-" + Date.now(), // Unique tag to prevent duplicates
-      requireInteraction: false, // Auto close after a while
-    });
-    
-    // Auto close after 5 seconds
-    setTimeout(() => notification.close(), 5000);
-    
+      requireInteraction: true, // Require user interaction to close
+      renotify: true, // Always show a new notification, even if tag is the same
+      silent: false, // Play the system sound
+      vibrate: [200, 100, 200], // Vibration pattern for mobile devices
+      badge: "/favicon.ico", // Icon for Android notification tray
+      timestamp: Date.now(), // When the notification was created
+      actions: [
+        {
+          action: 'open',
+          title: 'Открыть'
+        }
+      ]
+    };
+
+    // Create and show the notification
+    const notification = new Notification(title, notificationOptions);
+
     // Handle click on notification
     notification.onclick = function() {
-      window.focus(); // Focus on the window
+      // If window is already open, focus it
+      if (window && window.focus) {
+        window.focus();
+      } else {
+        // Otherwise try to open the app
+        if (window.location && window.location.origin) {
+          window.open(window.location.origin, '_blank');
+        }
+      }
       notification.close();
     };
+
+    // Don't auto-close important notifications
+    if (title.includes("Отмена") || body.includes("невозможно")) {
+      // Keep notification visible until user interacts with it
+    } else {
+      // Auto close regular notifications after 10 seconds
+      setTimeout(() => notification.close(), 10000);
+    }
+
+    return notification;
   } catch (error) {
     console.error("Error showing desktop notification:", error);
+    return null;
   }
 }
 
