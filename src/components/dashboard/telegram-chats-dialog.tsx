@@ -66,7 +66,6 @@ export function TelegramChatsDialog({
   // Fetch available chats
   useEffect(() => {
     if (open) {
-      // Always use direct request
       fetchChats();
       setResponseData(null);
       setMessage("");
@@ -91,44 +90,27 @@ export function TelegramChatsDialog({
 
       console.log("Fetching chats directly from:", targetUrl);
 
-      // Use XMLHttpRequest for better control
-      const xhr = new XMLHttpRequest();
-
-      // Create a promise wrapper around XHR
-      const result = await new Promise((resolve, reject) => {
-        // Set timeout (10 seconds)
-        const timeout = setTimeout(() => {
-          xhr.abort();
-          reject(new Error("Request timed out"));
-        }, 10000);
-
-        xhr.open('GET', targetUrl, true);
-        xhr.setRequestHeader('Accept', 'application/json');
-        xhr.setRequestHeader('X-API-Key', apiKey);
-
-        xhr.onload = function() {
-          clearTimeout(timeout);
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              resolve(data);
-            } catch (e) {
-              reject(new Error("Invalid JSON response"));
-            }
-          } else {
-            reject(new Error(`HTTP Error: ${xhr.status}`));
-          }
-        };
-
-        xhr.onerror = function() {
-          clearTimeout(timeout);
-          reject(new Error("Network error"));
-        };
-
-        xhr.send();
+      // Always use proxy
+      console.log("Using proxy for API request");
+      const response = await fetch(`/api/proxy/chats`, {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+          "X-API-Key": apiKey,
+        },
+        signal: (() => {
+          const controller = new AbortController();
+          setTimeout(() => controller.abort(), 45000); // 45 second timeout
+          return controller.signal;
+        })(),
       });
 
-      const data = result as { chats: TelegramChat[] };
+      if (!response.ok) {
+        throw new Error(`Error fetching chats: ${response.status}`);
+      }
+
+      const data = await response.json();
+
       setChats(data.chats || []);
 
       // Auto-select the first chat if available
@@ -180,14 +162,9 @@ export function TelegramChatsDialog({
       setSendingMessage(true);
       setResponseData(null);
 
-      // Always use direct request - no proxy
-      console.log("Using direct request only");
-
-      let targetUrl = apiUrl;
-      if (!targetUrl.endsWith('/')) targetUrl += '/';
-      targetUrl += 'send';
-
-      const response = await fetch(targetUrl, {
+      // Always use proxy
+      console.log("Using proxy for send request");
+      const response = await fetch(`/api/proxy/send`, {
         method: "POST",
         headers: {
           accept: "application/json",
@@ -200,7 +177,7 @@ export function TelegramChatsDialog({
         }),
         signal: (() => {
           const controller = new AbortController();
-          setTimeout(() => controller.abort(), 15000);
+          setTimeout(() => controller.abort(), 45000); // 45 second timeout
           return controller.signal;
         })(),
       });

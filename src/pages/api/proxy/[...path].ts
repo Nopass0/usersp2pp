@@ -55,7 +55,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const queryString = queryParams.toString();
     const finalUrl = queryString ? `${targetUrl}?${queryString}` : targetUrl;
 
-    // Forward the request to the target
+    // Forward the request to the target with increased timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 40000); // 40 second timeout
+
     const response = await fetch(finalUrl, {
       method: req.method,
       headers: {
@@ -64,7 +67,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         'X-API-Key': apiKey,
       },
       body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     // Get response data
     const contentType = response.headers.get('content-type') || 'application/json';
