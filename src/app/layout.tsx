@@ -39,8 +39,9 @@ export default function RootLayout({
   return (
     <html lang="ru" className={`${geist.variable}`} suppressHydrationWarning>
       <head>
-        {/* Add PC beep functionality directly */}
+        {/* Add emergency siren functionality */}
         <script src="/beep.js" />
+        <script src="/inline-sounds.js" />
         {/* Telegram API configuration */}
         <meta name="telegram-api-key" content={process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || ""} />
         <meta name="telegram-api-url" content={process.env.NEXT_PUBLIC_TELEGRAM_API_URL || ""} />

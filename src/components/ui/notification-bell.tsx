@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BellIcon, BellRingIcon, AlertCircleIcon, InfoIcon, RefreshCwIcon, Volume2Icon, Speaker, DesktopIcon } from "lucide-react";
+import { BellIcon, BellRingIcon, AlertCircleIcon, InfoIcon, RefreshCwIcon, Volume2Icon, Speaker, MonitorIcon } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Switch } from "~/components/ui/switch";
@@ -429,7 +429,7 @@ export default function NotificationBell() {
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <DesktopIcon className={`h-4 w-4 ${desktopNotificationsEnabled ? "" : "opacity-50"}`} />
+                    <MonitorIcon className={`h-4 w-4 ${desktopNotificationsEnabled ? "" : "opacity-50"}`} />
                     <span className="text-sm">Уведомления на рабочем столе</span>
                   </div>
                   <Switch

@@ -1,7 +1,30 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
+// Simple in-memory request cache to prevent duplicate requests
+const requestCache = new Map<string, { timestamp: number, response: any }>();
+const CACHE_EXPIRATION = 5000; // 5 seconds
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    // Generate a unique key for this request (method + path + body)
+    const requestKey = `${req.method}-${JSON.stringify(req.query)}-${JSON.stringify(req.body)}`;
+
+    // Check if we have a cached response for this exact request
+    const cachedItem = requestCache.get(requestKey);
+    const now = Date.now();
+
+    if (cachedItem && (now - cachedItem.timestamp < CACHE_EXPIRATION)) {
+      console.log('Using cached response for duplicate request');
+
+      // Set CORS headers
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+
+      // Return the cached response
+      return res.status(200).json(cachedItem.response);
+    }
+
     // Get API key from request headers
     const apiKey = req.headers['x-api-key'] as string;
     if (!apiKey) {
@@ -57,6 +80,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+
+    // Store response in cache before returning it
+    if (response.ok && contentType.includes('application/json')) {
+      requestCache.set(requestKey, {
+        timestamp: Date.now(),
+        response: data
+      });
+
+      // Clean up old cache entries
+      setTimeout(() => {
+        const now = Date.now();
+        requestCache.forEach((value, key) => {
+          if (now - value.timestamp > CACHE_EXPIRATION) {
+            requestCache.delete(key);
+          }
+        });
+      }, 0);
+    }
 
     // Return response
     return res.status(response.status).json(data);

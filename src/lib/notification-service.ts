@@ -687,9 +687,16 @@ function playNotificationSound() {
   // Get store state to check settings
   const { soundEnabled } = useNotificationStore.getState();
 
-  // Use the emergency siren if sound is enabled
+  // Use the emergency siren if sound is enabled - try all available methods
   if (soundEnabled) {
+    // Try the imported playEmergencySiren function
     playEmergencySiren();
+
+    // Also try using the window global version if available
+    if (typeof window !== 'undefined' && window.playEmergencySiren) {
+      window.playEmergencySiren();
+    }
+
     return; // Exit early, no need to try the old methods
   }
 

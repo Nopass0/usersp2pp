@@ -236,7 +236,26 @@ export function TelegramChatsDialog({
     }
   };
 
+  // Add a debounce mechanism to prevent duplicate requests
+  const [lastRequestTime, setLastRequestTime] = useState<number>(0);
+  const [requestInProgress, setRequestInProgress] = useState<boolean>(false);
+  const DEBOUNCE_TIME = 2000; // 2 seconds between requests
+
   const handleSendMessage = async () => {
+    // Check if we're already in the process of sending a request
+    if (requestInProgress) {
+      console.log("Request already in progress, ignoring duplicate");
+      return;
+    }
+
+    // Check if enough time has passed since the last request
+    const now = Date.now();
+    if (now - lastRequestTime < DEBOUNCE_TIME) {
+      console.log(`Ignoring duplicate request (waited only ${now - lastRequestTime}ms)`);
+      toast.info("Запрос уже отправляется, пожалуйста подождите");
+      return;
+    }
+
     if (!selectedChatId || !message.trim()) {
       toast.error("Ошибка", {
         description: "Выберите кабинет и введите сообщение",
@@ -255,6 +274,9 @@ export function TelegramChatsDialog({
     }
 
     try {
+      // Set request tracking flags
+      setRequestInProgress(true);
+      setLastRequestTime(now);
       setSendingMessage(true);
       setResponseData(null);
 
@@ -429,6 +451,10 @@ export function TelegramChatsDialog({
       }
     } finally {
       setSendingMessage(false);
+      // Reset request tracking flag after a slight delay
+      setTimeout(() => {
+        setRequestInProgress(false);
+      }, 500);
     }
   };
 
