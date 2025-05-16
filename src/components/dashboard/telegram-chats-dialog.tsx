@@ -263,9 +263,6 @@ export function TelegramChatsDialog({
       return;
     }
 
-    // If in secure context and API URL is HTTP, prefer proxy to avoid mixed content
-    const useProxy = isSecureContext && apiUrl && apiUrl.startsWith('http://');
-
     if (!apiUrl) {
       toast.error("Ошибка конфигурации", {
         description: "API URL не настроен, проверьте настройки",
@@ -280,10 +277,18 @@ export function TelegramChatsDialog({
       setSendingMessage(true);
       setResponseData(null);
 
-      // If in a secure context (HTTPS) and using HTTP API, use the proxy
-      if (useProxy) {
-        console.log("Using proxy for secure context");
-        const response = await fetch(`/api/proxy/send`, {
+      let response;
+      let isProxyRequest = false;
+
+      // Determine if we should use proxy
+      const shouldUseProxy = isSecureContext && apiUrl.startsWith('http://');
+
+      if (shouldUseProxy) {
+        // Use proxy for secure contexts with HTTP API
+        console.log("Using proxy for secure context to avoid mixed content");
+        isProxyRequest = true;
+
+        response = await fetch(`/api/proxy/send`, {
           method: "POST",
           headers: {
             accept: "application/json",
@@ -294,90 +299,48 @@ export function TelegramChatsDialog({
             chat_id: parseInt(selectedChatId),
             text: message,
           }),
-          // Manual timeout using AbortController
           signal: (() => {
             const controller = new AbortController();
             setTimeout(() => controller.abort(), 15000);
             return controller.signal;
           })(),
         });
+      } else {
+        // Use direct request for non-secure contexts or HTTPS API
+        console.log("Using direct request");
+        
+        let targetUrl = apiUrl;
+        if (!targetUrl.endsWith('/')) targetUrl += '/';
+        targetUrl += 'send';
 
-        if (!response.ok) {
-          throw new Error(`Error sending message via proxy: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setResponseData(data);
-
-        if (data.success) {
-          toast.success("Запрос обработан через прокси", {
-            description:
-              data.auto_withdraw !== undefined
-                ? `Автовывод: ${data.auto_withdraw ? "ДА" : "НЕТ"}`
-                : "Операция успешно выполнена",
-          });
-          setMessage("");
-        } else {
-          toast.error("Ошибка", {
-            description: data.message || "Ошибка при обработке запроса",
-          });
-        }
-
-        // Early return as we're done
-        return;
+        response = await fetch(targetUrl, {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "Content-Type": "application/json",
+            "X-API-Key": apiKey,
+          },
+          body: JSON.stringify({
+            chat_id: parseInt(selectedChatId),
+            text: message,
+          }),
+          signal: (() => {
+            const controller = new AbortController();
+            setTimeout(() => controller.abort(), 15000);
+            return controller.signal;
+          })(),
+        });
       }
 
-      // Make a direct HTTP request to the API when not in secure context
-      // Create the full URL ensuring it's valid
-      let targetUrl = apiUrl;
-      if (!targetUrl.endsWith('/')) targetUrl += '/';
-      targetUrl += 'send';
+      if (!response.ok) {
+        throw new Error(`Error sending message${isProxyRequest ? ' via proxy' : ''}: ${response.status}`);
+      }
 
-      console.log("Sending message directly to:", targetUrl);
-
-      // Send using XMLHttpRequest for more control over errors and timeouts
-      const xhr = new XMLHttpRequest();
-
-      // Set timeout (15 seconds)
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Request timed out")), 15000)
-      );
-
-      const requestPromise = new Promise((resolve, reject) => {
-        xhr.open('POST', targetUrl, true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('Accept', 'application/json');
-        xhr.setRequestHeader('X-API-Key', apiKey);
-
-        xhr.onload = function() {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              resolve(data);
-            } catch (e) {
-              reject(new Error("Invalid JSON response"));
-            }
-          } else {
-            reject(new Error(`HTTP Error: ${xhr.status}`));
-          }
-        };
-
-        xhr.onerror = function() {
-          reject(new Error("Network error"));
-        };
-
-        xhr.send(JSON.stringify({
-          chat_id: parseInt(selectedChatId),
-          text: message,
-        }));
-      });
-
-      // Race between timeout and successful completion
-      const data = await Promise.race([requestPromise, timeoutPromise]) as ResponseMessage;
+      const data = await response.json();
       setResponseData(data);
 
       if (data.success) {
-        toast.success("Запрос обработан", {
+        toast.success(`Запрос обработан${isProxyRequest ? ' через прокси' : ''}`, {
           description:
             data.auto_withdraw !== undefined
               ? `Автовывод: ${data.auto_withdraw ? "ДА" : "НЕТ"}`
@@ -390,65 +353,19 @@ export function TelegramChatsDialog({
         });
       }
     } catch (error) {
-      console.error("Failed to send message directly:", error);
-
-      // Fallback to proxy if direct request fails
-      try {
-        console.log("Falling back to proxy for message sending");
-        toast.info("Используем резервный метод отправки...");
-
-        // Use proxy as fallback
-        const response = await fetch(`/api/proxy/send`, {
-          method: "POST",
-          headers: {
-            accept: "application/json",
-            "Content-Type": "application/json",
-            "X-API-Key": apiKey,
-          },
-          body: JSON.stringify({
-            chat_id: parseInt(selectedChatId),
-            text: message,
-          }),
-          // Manual timeout using AbortController for broader browser support
-          signal: (() => {
-            const controller = new AbortController();
-            setTimeout(() => controller.abort(), 15000); // 15 second timeout
-            return controller.signal;
-          })(),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Error sending message via proxy: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setResponseData(data);
-
-        if (data.success) {
-          toast.success("Запрос обработан через прокси", {
-            description: data.auto_withdraw !== undefined
-              ? `Автовывод: ${data.auto_withdraw ? "ДА" : "НЕТ"}`
-              : "Операция успешно выполнена",
-          });
-          setMessage("");
-        } else {
-          throw new Error(data.message || "Ошибка при обработке запроса");
-        }
-      } catch (fallbackError) {
-        console.error("Fallback also failed:", fallbackError);
-        toast.error("Ошибка при отправке сообщения", {
-          description:
-            fallbackError instanceof Error
-              ? fallbackError.message
-              : "Все методы отправки завершились с ошибкой",
-        });
-        setResponseData({
-          success: false,
-          message: fallbackError instanceof Error
-            ? fallbackError.message
-            : "Все методы отправки завершились с ошибкой",
-        });
-      }
+      console.error("Failed to send message:", error);
+      toast.error("Ошибка при отправке сообщения", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Ошибка при отправке запроса",
+      });
+      setResponseData({
+        success: false,
+        message: error instanceof Error
+          ? error.message
+          : "Ошибка при отправке запроса",
+      });
     } finally {
       setSendingMessage(false);
       // Reset request tracking flag after a slight delay
