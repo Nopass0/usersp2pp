@@ -144,115 +144,27 @@ export function TelegramChatsDialog({
         setSelectedChatId(data.chats[0].id.toString());
       }
     } catch (error) {
-      console.error("Failed to fetch chats directly:", error);
-
-      // Fallback to proxy
-      try {
-        console.log("Falling back to proxy for chat fetching");
-        toast.info("Используем резервный метод для загрузки чатов...");
-
-        // Use proxy as fallback
-        const response = await fetch(`/api/proxy/chats`, {
-          method: "GET",
-          headers: {
-            accept: "application/json",
-            "X-API-Key": apiKey,
-          },
-          // Manual timeout using AbortController for broader browser support
-          signal: (() => {
-            const controller = new AbortController();
-            setTimeout(() => controller.abort(), 15000); // 15 second timeout
-            return controller.signal;
-          })(),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Error fetching chats via proxy: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setChats(data.chats || []);
-
-        // Auto-select the first chat if available
-        if (data.chats && data.chats.length > 0) {
-          setSelectedChatId(data.chats[0].id.toString());
-          toast.success("Чаты загружены через прокси");
-        } else {
-          toast.warning("Нет доступных чатов");
-        }
-      } catch (fallbackError) {
-        console.error("Fallback also failed:", fallbackError);
-        toast.error("Ошибка при загрузке чатов", {
-          description:
-            fallbackError instanceof Error
-              ? fallbackError.message
-              : "Все методы загрузки завершились с ошибкой",
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Function to fetch chats via proxy (for HTTPS contexts)
-  const fetchChatsViaProxy = async () => {
-    try {
-      setLoading(true);
-
-      console.log("Fetching chats via proxy");
-      const response = await fetch(`/api/proxy/chats`, {
-        method: "GET",
-        headers: {
-          accept: "application/json",
-          "X-API-Key": apiKey,
-        },
-        // Manual timeout using AbortController for broader browser support
-        signal: (() => {
-          const controller = new AbortController();
-          setTimeout(() => controller.abort(), 15000); // 15 second timeout
-          return controller.signal;
-        })(),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error fetching chats via proxy: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setChats(data.chats || []);
-
-      // Auto-select the first chat if available
-      if (data.chats && data.chats.length > 0) {
-        setSelectedChatId(data.chats[0].id.toString());
-      }
-    } catch (error) {
-      console.error("Failed to fetch chats via proxy:", error);
+      console.error("Failed to fetch chats:", error);
       toast.error("Ошибка при загрузке чатов", {
         description:
-          error instanceof Error ? error.message : "Неизвестная ошибка",
+          error instanceof Error
+            ? error.message
+            : "Не удалось загрузить чаты",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  // Add a debounce mechanism to prevent duplicate requests
-  const [lastRequestTime, setLastRequestTime] = useState<number>(0);
+  // Removed proxy function - only using direct requests now
+
+  // Single request at a time - no retries
   const [requestInProgress, setRequestInProgress] = useState<boolean>(false);
-  const DEBOUNCE_TIME = 2000; // 2 seconds between requests
 
   const handleSendMessage = async () => {
     // Check if we're already in the process of sending a request
     if (requestInProgress) {
       console.log("Request already in progress, ignoring duplicate");
-      return;
-    }
-
-    // Check if enough time has passed since the last request
-    const now = Date.now();
-    if (now - lastRequestTime < DEBOUNCE_TIME) {
-      console.log(`Ignoring duplicate request (waited only ${now - lastRequestTime}ms)`);
-      toast.info("Запрос уже отправляется, пожалуйста подождите");
       return;
     }
 
@@ -273,74 +185,43 @@ export function TelegramChatsDialog({
     try {
       // Set request tracking flags
       setRequestInProgress(true);
-      setLastRequestTime(now);
       setSendingMessage(true);
       setResponseData(null);
 
-      let response;
-      let isProxyRequest = false;
+      // Always use direct request - no proxy
+      console.log("Using direct request only");
 
-      // Determine if we should use proxy
-      const shouldUseProxy = isSecureContext && apiUrl.startsWith('http://');
+      let targetUrl = apiUrl;
+      if (!targetUrl.endsWith('/')) targetUrl += '/';
+      targetUrl += 'send';
 
-      if (shouldUseProxy) {
-        // Use proxy for secure contexts with HTTP API
-        console.log("Using proxy for secure context to avoid mixed content");
-        isProxyRequest = true;
-
-        response = await fetch(`/api/proxy/send`, {
-          method: "POST",
-          headers: {
-            accept: "application/json",
-            "Content-Type": "application/json",
-            "X-API-Key": apiKey,
-          },
-          body: JSON.stringify({
-            chat_id: parseInt(selectedChatId),
-            text: message,
-          }),
-          signal: (() => {
-            const controller = new AbortController();
-            setTimeout(() => controller.abort(), 15000);
-            return controller.signal;
-          })(),
-        });
-      } else {
-        // Use direct request for non-secure contexts or HTTPS API
-        console.log("Using direct request");
-        
-        let targetUrl = apiUrl;
-        if (!targetUrl.endsWith('/')) targetUrl += '/';
-        targetUrl += 'send';
-
-        response = await fetch(targetUrl, {
-          method: "POST",
-          headers: {
-            accept: "application/json",
-            "Content-Type": "application/json",
-            "X-API-Key": apiKey,
-          },
-          body: JSON.stringify({
-            chat_id: parseInt(selectedChatId),
-            text: message,
-          }),
-          signal: (() => {
-            const controller = new AbortController();
-            setTimeout(() => controller.abort(), 15000);
-            return controller.signal;
-          })(),
-        });
-      }
+      const response = await fetch(targetUrl, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify({
+          chat_id: parseInt(selectedChatId),
+          text: message,
+        }),
+        signal: (() => {
+          const controller = new AbortController();
+          setTimeout(() => controller.abort(), 15000);
+          return controller.signal;
+        })(),
+      });
 
       if (!response.ok) {
-        throw new Error(`Error sending message${isProxyRequest ? ' via proxy' : ''}: ${response.status}`);
+        throw new Error(`Error sending message: ${response.status}`);
       }
 
       const data = await response.json();
       setResponseData(data);
 
       if (data.success) {
-        toast.success(`Запрос обработан${isProxyRequest ? ' через прокси' : ''}`, {
+        toast.success("Запрос обработан", {
           description:
             data.auto_withdraw !== undefined
               ? `Автовывод: ${data.auto_withdraw ? "ДА" : "НЕТ"}`
