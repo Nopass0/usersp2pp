@@ -63,19 +63,11 @@ export function TelegramChatsDialog({
   const apiKey = process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || "";
   const apiUrl = process.env.NEXT_PUBLIC_TELEGRAM_API_URL || "";
 
-  // Check if we're running in a secure context (HTTPS)
-  const isSecureContext = typeof window !== 'undefined' && window.location.protocol === 'https:';
-
   // Fetch available chats
   useEffect(() => {
     if (open) {
-      // If we're running in HTTPS mode, always use the proxy to avoid mixed content issues
-      if (isSecureContext && apiUrl && apiUrl.startsWith('http://')) {
-        console.log("Secure context detected - using proxy to avoid mixed content issues");
-        fetchChatsViaProxy();
-      } else {
-        fetchChats();
-      }
+      // Always use direct request
+      fetchChats();
       setResponseData(null);
       setMessage("");
     }
