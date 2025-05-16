@@ -606,12 +606,26 @@ function playNotificationSound() {
     // Also try to play the audio file through regular speakers if enabled
     if (soundEnabled) {
       const audio = new Audio("/sounds/notification.mp3");
-      audio.volume = 0.5; // Set to 50% volume
+      audio.volume = 1.0; // Set to 100% maximum volume
 
+      // Play the sound multiple times for extra loudness
       audio.play().catch((e) => {
         // If playing fails, don't show error in console
         console.log("Sound playback suppressed: requires user interaction");
       });
+
+      // Create duplicate sounds for increased volume effect
+      setTimeout(() => {
+        const audio2 = new Audio("/sounds/notification.mp3");
+        audio2.volume = 1.0;
+        audio2.play().catch(() => {});
+      }, 100);
+
+      setTimeout(() => {
+        const audio3 = new Audio("/sounds/notification.mp3");
+        audio3.volume = 1.0;
+        audio3.play().catch(() => {});
+      }, 200);
     }
   } catch (error) {
     // Don't show error in console
@@ -639,8 +653,8 @@ function playPcBeep() {
     // Silent fallback
   }
 
-  // Create multiple short beeps for better alerting
-  for (let i = 0; i < 3; i++) {
+  // Create multiple loud siren beeps for emergency alerting
+  for (let i = 0; i < 6; i++) {
     setTimeout(() => {
       try {
         // Try to use console.log approach with special character
@@ -657,16 +671,16 @@ function playPcBeep() {
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
 
-        // Configure oscillator for a typical PC beep frequency (around 800Hz)
-        oscillator.type = 'square'; // Square wave sounds more like PC beep
-        oscillator.frequency.value = 800 + (i * 200); // Vary frequency for each beep
+        // Configure oscillator for a siren-like sound (higher frequency)
+        oscillator.type = 'sawtooth'; // Sawtooth for harsh siren-like sound
+        oscillator.frequency.value = 1500 + (i * 300); // Higher frequency for emergency sound
 
         // Connect and configure gain
-        gainNode.gain.value = 0.1; // Low volume to avoid being too loud
+        gainNode.gain.value = 0.5; // Much louder volume for emergency alert
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
 
-        // Play a short beep (100ms)
+        // Play a longer beep (300ms) for siren effect
         oscillator.start();
         setTimeout(() => {
           try {
@@ -674,7 +688,7 @@ function playPcBeep() {
           } catch (e) {
             // Ignore stop errors
           }
-        }, 100);
+        }, 300);
       } catch (e) {
         // Ignore WebAudio errors silently
       }
