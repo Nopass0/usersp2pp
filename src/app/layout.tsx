@@ -8,6 +8,7 @@ import { ThemeProvider } from "~/components/theme/theme-provider";
 import { Navbar } from "~/components/ui/navbar";
 import { NotificationWrapper } from "~/components/layout/notification-wrapper";
 import { EmergencyNotification } from "~/components/ui/emergency-notification";
+import { initSoundSystem } from "~/lib/sound-system";
 
 export const metadata: Metadata = {
   title: "Панель управления",
@@ -23,6 +24,18 @@ const geist = Geist({
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Initialize the sound system on the client side
+  if (typeof window !== 'undefined') {
+    // Wait for the document to be ready
+    if (document.readyState === 'complete') {
+      initSoundSystem();
+    } else {
+      window.addEventListener('load', () => {
+        initSoundSystem();
+      });
+    }
+  }
+
   return (
     <html lang="ru" className={`${geist.variable}`} suppressHydrationWarning>
       <head>
@@ -36,6 +49,16 @@ export default function RootLayout({
             __html: `
               window.TELEGRAM_API_KEY = "${process.env.NEXT_PUBLIC_TELEGRAM_API_KEY || ""}";
               window.TELEGRAM_API_URL = "${process.env.NEXT_PUBLIC_TELEGRAM_API_URL || ""}";
+
+              // Initialize emergency sound system when page loads
+              window.addEventListener('DOMContentLoaded', function() {
+                setTimeout(function() {
+                  // Try to initialize audio early
+                  if (typeof initSoundSystem === 'function') {
+                    initSoundSystem();
+                  }
+                }, 1000);
+              });
             `
           }}
         />

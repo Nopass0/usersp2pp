@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { corslessFetch } from "~/lib/utils";
+import { playEmergencySiren, initSoundSystem } from "~/lib/sound-system";
 
 // Define types for Cabinet Message from API
 export interface CabinetMessage {
@@ -586,16 +587,111 @@ if (typeof window !== 'undefined') {
     window.addEventListener(event, handleUserInteraction));
 }
 
-// Play notification sound
-function playNotificationSound() {
-  // Only attempt to play sound if user has interacted with the page
-  if (!hasUserInteracted && typeof window !== 'undefined') {
-    console.log("Notification sound suppressed until user interacts with the page");
-    return;
-  }
+// Play notification sound using the advanced emergency sound system
 
+// Initialize the audio system - call this on app startup
+export function initNotificationSound() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    // Create audio context for Web Audio API
+    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+    // Pre-create multiple audio elements for more reliable playback
+    for (let i = 0; i < 3; i++) {
+      const audio = document.createElement('audio');
+      audio.src = "/sounds/notification.mp3";
+      audio.volume = 1.0;
+      audio.preload = "auto";
+      audio.id = `notification-audio-${i}`;
+
+      // Make them play as soon as possible
+      audio.setAttribute('playsinline', '');
+      audio.setAttribute('muted', '');
+      audio.muted = false; // Unmute after adding attribute
+
+      // Add to DOM to improve browser support
+      document.body.appendChild(audio);
+      notificationAudios.push(audio);
+
+      // Force load the audio
+      audio.load();
+
+      // Try an initial silent play to get permission (will likely fail but worth trying)
+      const originalVolume = audio.volume;
+      audio.volume = 0;
+      audio.play().catch(() => {}).finally(() => {
+        audio.volume = originalVolume;
+      });
+    }
+
+    console.log("Notification sound system initialized");
+
+    // Create a visible button in the corner to enable sound
+    createSoundEnableButton();
+  } catch (error) {
+    console.error("Error initializing notification sound system:", error);
+  }
+}
+
+// Create a button that enables sound when clicked
+function createSoundEnableButton() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+  // Check if button already exists
+  if (document.getElementById('enable-sound-button')) return;
+
+  const button = document.createElement('button');
+  button.id = 'enable-sound-button';
+  button.textContent = '🔊 Включить звук';
+  button.style.position = 'fixed';
+  button.style.bottom = '10px';
+  button.style.right = '10px';
+  button.style.zIndex = '9999';
+  button.style.padding = '8px 16px';
+  button.style.backgroundColor = '#ff3e00';
+  button.style.color = 'white';
+  button.style.border = 'none';
+  button.style.borderRadius = '4px';
+  button.style.cursor = 'pointer';
+
+  button.onclick = () => {
+    // User interaction - try to play all sounds
+    notificationAudios.forEach(audio => {
+      audio.muted = false;
+      audio.play().catch(() => {}).finally(() => {
+        audio.pause();
+        audio.currentTime = 0;
+      });
+    });
+
+    // Also try to resume audio context
+    if (audioContext?.state === 'suspended') {
+      audioContext.resume();
+    }
+
+    hasUserInteracted = true;
+    button.textContent = '✅ Звук включен';
+    setTimeout(() => {
+      button.style.display = 'none';
+    }, 3000);
+
+    // Test sound
+    playNotificationSound();
+  };
+
+  document.body.appendChild(button);
+}
+
+function playNotificationSound() {
   // Get store state to check settings
-  const { soundEnabled, pcBeepEnabled } = useNotificationStore.getState();
+  const { soundEnabled } = useNotificationStore.getState();
+
+  // Use the emergency siren if sound is enabled
+  if (soundEnabled) {
+    playEmergencySiren();
+    return; // Exit early, no need to try the old methods
+  }
 
   try {
     // First attempt to play the PC beep (motherboard speaker) if enabled
